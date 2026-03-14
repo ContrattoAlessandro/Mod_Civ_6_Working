@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Mod id="b7b6eee0-4160-488a-a6d7-caae2b885036" version="1">
+  <Properties>
+    <Name>City Scanner for Python Simulator</Name>
+    <Description>Scans a city radius (4 tiles) and prints data to Lua.log for use in the District Optimizer simulator.</Description>
+    <Teaser>City Scanner for Python Simulator</Teaser>
+    <Authors>Antigravity</Authors>
+    <AffectsSavedGames>0</AffectsSavedGames>
+    <CompatibleVersions>1.2,2.0</CompatibleVersions>
+  </Properties>
+  <InGameActions>
+    <AddUserInterfaces id="CityScanner_UI">
+      <Properties>
+        <Context>InGame</Context>
+      </Properties>
+      <File>CityScanner.xml</File>
+    </AddUserInterfaces>
+  </InGameActions>
+  <Files>
+    <File>CityScanner.xml</File>
+    <File>CityScanner.lua</File>
+  </Files>
+</Mod>
