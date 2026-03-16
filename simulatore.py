@@ -334,7 +334,7 @@ def esporta_per_web(mappa, archivio_pareto, directory="viewer", filename="data.j
         
     filepath = os.path.join(directory, filename)
     with open(filepath, 'w', encoding='utf-8') as f:
-        f.write("const CIV6_DATA = " + json.dumps(data, indent=2) + ";")
+        f.write("let CIV6_DATA = " + json.dumps(data, indent=2) + ";")
     print(f"\n[+] Dati esportati con successo per il Web Viewer in: {filepath}")
 
 def genera_layout_casuale_valido(mappa, distretti):
@@ -451,8 +451,8 @@ if __name__ == "__main__":
         "Acquedotto", 
         "Porto", 
         "Campus", 
-        "Piazza del Teatro", 
-        "Luogo Santo", 
+        #"Piazza del Teatro", 
+        #"Luogo Santo", 
         "Zona Industriale", 
         "Hub Commerciale", 
         "Piazza del Governo",

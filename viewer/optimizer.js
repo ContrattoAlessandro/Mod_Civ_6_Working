@@ -1,69 +1,3 @@
-<!DOCTYPE html>
-<html lang="it">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Civ 6 Optimizer - Viewer</title>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="style.css">
-</head>
-<body>
-    <div class="app-container">
-        <!-- Barra Laterale (Menu) -->
-        <aside class="sidebar">
-            <div class="sidebar-header">
-                <h1>Civ 6 Optimizer</h1>
-                <p>Layout Generator Viewer</p>
-            </div>
-            
-            <div class="controls setup-section">
-                <label for="cityDataInput">Dati City Scanner:</label>
-                <textarea id="cityDataInput" placeholder="Incolla qui l'output del City Scanner di Civ 6..."></textarea>
-                
-                <div class="districts-selector" id="districtsSelector">
-                   <!-- Populated by JS -->
-                </div>
-
-                <div class="optimizer-params">
-                    <div class="param-group">
-                        <label for="inputGenerations">Generazioni</label>
-                        <input type="number" id="inputGenerations" value="500" min="10" max="5000">
-                    </div>
-                    <div class="param-group">
-                        <label for="inputPopulation">Popolazione</label>
-                        <input type="number" id="inputPopulation" value="1000" min="100" max="5000">
-                    </div>
-                </div>
-
-                <button id="btnOptimize" class="btn-primary">Avvia Ottimizzazione</button>
-                <div id="progressContainer" style="display: none;">
-                    <div id="progressText">Inizializzazione...</div>
-                    <div class="progress-bar"><div id="progressFill"></div></div>
-                </div>
-            </div>
-
-            <div class="controls results-section" style="display: none;" id="resultsSection">
-                <label>Fronte di Pareto</label>
-                <div class="solutions-list" id="solutionsList">
-                    <!-- Cards iniettate da JS -->
-                </div>
-            </div>
-            
-            <div class="sidebar-footer">
-                <p>Usa la rotella o trascina per navigare la mappa.</p>
-            </div>
-        </aside>
-
-        <!-- Area Principale (Mappa) -->
-        <main class="map-container" id="mapContainer">
-            <canvas id="hexCanvas"></canvas>
-            
-            <!-- Tooltip per info su hover -->
-            <div class="tooltip" id="tooltip"></div>
-        </main>
-    </div>
-
-    <script id="worker-script" type="javascript/worker">
 // viewer/optimizer.js (Web Worker)
 
 // --- STEP 1: STRUTTURE DATI (LA MAPPA) ---
@@ -138,8 +72,6 @@ class MappaCitta {
             l = l.trim();
             if (l.startsWith("{")) {
                 try {
-                    // Pre-processing to make Python/Lua-like object a valid JSON string
-                    
                     let jsonStr = l.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
                     const data = (new Function('return ' + jsonStr))();
 
@@ -202,7 +134,7 @@ class MappaCitta {
         }
         console.log(`Mappa importata con successo (${celle_importate} celle modificate).`);
         if (celle_importate === 0) {
-             throw new Error("Nessuna cella valida trovata nei dati forniti. Controlla il formato.");
+            throw new Error("Nessuna cella valida trovata nei dati forniti. Controlla il formato.");
         }
     }
 }
@@ -250,70 +182,94 @@ function verifica_vincoli(distretto, esagono, mappa) {
     return true;
 }
 
-// --- STEP 3: MOTORE DELLE REGOLE ---
+// --- STEP 3: MOTORE DELLE REGOLE (OTTIMIZZATO ZERO-ALLOCATION) ---
 
-function calcola_rese(mappa) {
+function calcola_rese_ottimizzata(mappa, layout) {
     const rese = { Scienza: 0, Oro: 0, Produzione: 0, Cultura: 0, Fede: 0 };
 
-    for (let [hash, cella] of mappa.celle.entries()) {
-        if (!cella.distretto || cella.distretto === "Centro Cittadino") continue;
+    // Mappa veloce per O(1) lookup dei nuovi distretti senza alterare la mappa originale
+    const hash_to_distretto = new Map();
+    for (let [d_nome, pos] of layout.entries()) {
+        hash_to_distretto.set(pos.hashKey(), d_nome);
+    }
 
-        const distretto = cella.distretto;
+    const elementi_distruttibili = new Set(["Bosco", "Foresta Pluviale", "Risorsa Cava"]);
+
+    for (let [hash, cella_base] of mappa.celle.entries()) {
+        const distretto_corrente = hash_to_distretto.get(hash) || cella_base.distretto;
+        if (!distretto_corrente || distretto_corrente === "Centro Cittadino") continue;
+
         let resa_locale = 0;
-        
-        const celle_adiacenti = cella.esagono.adiacenti()
-            .map(adj => mappa.celle.get(adj.hashKey()))
-            .filter(c => c !== undefined);
 
-        const num_distretti_adiacenti = celle_adiacenti.filter(c => c.distretto !== null).length;
-        const ha_piazza_governo = celle_adiacenti.some(c => c.distretto === "Piazza del Governo");
+        // Costruiamo le adiacenze "virtuali" valutando i nuovi distretti a runtime
+        const adiacenti_virtuali = cella_base.esagono.adiacenti()
+            .map(adj => {
+                const adj_hash = adj.hashKey();
+                const c_reale = mappa.celle.get(adj_hash);
+                if (!c_reale) return null;
+
+                const d_adj = hash_to_distretto.get(adj_hash) || c_reale.distretto;
+                const is_sovrascritta = hash_to_distretto.has(adj_hash);
+
+                return {
+                    distretto: d_adj,
+                    has_caratteristica: (f) => {
+                        // Se c'è un distretto nuovo, copre le caratteristiche distruttibili
+                        if (is_sovrascritta && elementi_distruttibili.has(f)) return false;
+                        return c_reale.caratteristiche.has(f);
+                    }
+                };
+            })
+            .filter(c => c !== null);
+
+        const num_distretti_adiacenti = adiacenti_virtuali.filter(c => c.distretto !== null).length;
+        const ha_piazza_governo = adiacenti_virtuali.some(c => c.distretto === "Piazza del Governo");
 
         let bonus_distretti_generico = Math.floor(num_distretti_adiacenti / 2);
         if (ha_piazza_governo) bonus_distretti_generico += 1;
 
-        if (distretto === "Campus") {
-            const m = celle_adiacenti.filter(c => c.caratteristiche.has("Montagna")).length;
-            const b = celle_adiacenti.filter(c => c.caratteristiche.has("Barriera Corallina")).length * 2;
-            const g = celle_adiacenti.filter(c => c.caratteristiche.has("Fessura Geotermale")).length * 2;
-            const f = celle_adiacenti.filter(c => c.caratteristiche.has("Foresta Pluviale")).length;
+        if (distretto_corrente === "Campus") {
+            const m = adiacenti_virtuali.filter(c => c.has_caratteristica("Montagna")).length;
+            const b = adiacenti_virtuali.filter(c => c.has_caratteristica("Barriera Corallina")).length * 2;
+            const g = adiacenti_virtuali.filter(c => c.has_caratteristica("Fessura Geotermale")).length * 2;
+            const f = adiacenti_virtuali.filter(c => c.has_caratteristica("Foresta Pluviale")).length;
             resa_locale = m + b + g + Math.floor(f / 2) + bonus_distretti_generico;
             rese.Scienza += resa_locale;
 
-        } else if (distretto === "Hub Commerciale") {
-            const ha_fiume = cella.caratteristiche.has("Fiume") ? 2 : 0;
-            const p = celle_adiacenti.filter(c => c.distretto === "Porto").length * 2;
+        } else if (distretto_corrente === "Hub Commerciale") {
+            const ha_fiume = cella_base.caratteristiche.has("Fiume") ? 2 : 0;
+            const p = adiacenti_virtuali.filter(c => c.distretto === "Porto").length * 2;
             resa_locale = ha_fiume + p + bonus_distretti_generico;
             rese.Oro += resa_locale;
 
-        } else if (distretto === "Porto") {
-            const cc = celle_adiacenti.filter(c => c.distretto === "Centro Cittadino").length * 2;
-            const rm = celle_adiacenti.filter(c => c.caratteristiche.has("Risorsa Marina")).length;
+        } else if (distretto_corrente === "Porto") {
+            const cc = adiacenti_virtuali.filter(c => c.distretto === "Centro Cittadino").length * 2;
+            const rm = adiacenti_virtuali.filter(c => c.has_caratteristica("Risorsa Marina")).length;
             resa_locale = cc + rm + bonus_distretti_generico;
             rese.Oro += resa_locale;
 
-        } else if (distretto === "Zona Industriale") {
-            const ad = celle_adiacenti.filter(c => c.distretto === "Acquedotto" || c.distretto === "Diga").length * 2;
-            const s = celle_adiacenti.filter(c => c.caratteristiche.has("Risorsa Strategica") && c.distretto === null).length;
-            const q = celle_adiacenti.filter(c => c.caratteristiche.has("Potenziale Cava") && c.distretto === null).length;
-
-            const num_miniere = celle_adiacenti.filter(c => (c.caratteristiche.has("Collina") || c.caratteristiche.has("Potenziale Miniera")) && c.distretto === null).length;
-            const num_segherie = celle_adiacenti.filter(c => c.caratteristiche.has("Bosco") && c.distretto === null).length;
+        } else if (distretto_corrente === "Zona Industriale") {
+            const ad = adiacenti_virtuali.filter(c => c.distretto === "Acquedotto" || c.distretto === "Diga").length * 2;
+            const s = adiacenti_virtuali.filter(c => c.has_caratteristica("Risorsa Strategica") && c.distretto === null).length;
+            const q = adiacenti_virtuali.filter(c => c.has_caratteristica("Potenziale Cava") && c.distretto === null).length;
+            const num_miniere = adiacenti_virtuali.filter(c => (c.has_caratteristica("Collina") || c.has_caratteristica("Potenziale Miniera")) && c.distretto === null).length;
+            const num_segherie = adiacenti_virtuali.filter(c => c.has_caratteristica("Bosco") && c.distretto === null).length;
 
             resa_locale = ad + s + q + Math.floor((num_miniere + num_segherie) / 2) + bonus_distretti_generico;
             rese.Produzione += resa_locale;
 
-        } else if (distretto === "Piazza del Teatro") {
+        } else if (distretto_corrente === "Piazza del Teatro") {
             resa_locale = bonus_distretti_generico;
             rese.Cultura += resa_locale;
 
-        } else if (distretto === "Accampamento") {
+        } else if (distretto_corrente === "Accampamento") {
             resa_locale = bonus_distretti_generico;
             rese.Produzione += resa_locale;
 
-        } else if (distretto === "Luogo Santo") {
-            const m = celle_adiacenti.filter(c => c.caratteristiche.has("Montagna")).length;
-            const mn = celle_adiacenti.filter(c => c.caratteristiche.has("Meraviglia Naturale")).length * 2;
-            const bo = celle_adiacenti.filter(c => c.caratteristiche.has("Bosco") && c.distretto === null).length;
+        } else if (distretto_corrente === "Luogo Santo") {
+            const m = adiacenti_virtuali.filter(c => c.has_caratteristica("Montagna")).length;
+            const mn = adiacenti_virtuali.filter(c => c.has_caratteristica("Meraviglia Naturale")).length * 2;
+            const bo = adiacenti_virtuali.filter(c => c.has_caratteristica("Bosco") && c.distretto === null).length;
             resa_locale = m + mn + Math.floor(bo / 2) + bonus_distretti_generico;
             rese.Fede += resa_locale;
         }
@@ -322,46 +278,19 @@ function calcola_rese(mappa) {
     return rese;
 }
 
+
 // --- STEP 4: ALGORITMO DI OTTIMIZZAZIONE ---
-
-function simula_layout_con_distruzione(mappa, layout) {
-    const caratteristiche_salvate = new Map();
-    const elementi_distruttibili = ["Bosco", "Foresta Pluviale", "Risorsa Cava"];
-
-    for (const [distretto, esagono] of layout.entries()) {
-        const hash = esagono.hashKey();
-        const cella = mappa.celle.get(hash);
-        
-        caratteristiche_salvate.set(hash, new Set(cella.caratteristiche));
-        
-        for (let elem of elementi_distruttibili) {
-            cella.caratteristiche.delete(elem);
-        }
-        cella.distretto = distretto;
-    }
-
-    const rese = calcola_rese(mappa);
-
-    for (const [distretto, esagono] of layout.entries()) {
-        const hash = esagono.hashKey();
-        const cella = mappa.celle.get(hash);
-        cella.distretto = null;
-        cella.caratteristiche = caratteristiche_salvate.get(hash);
-    }
-
-    return rese;
-}
 
 function domina(resa_A, resa_B) {
     const sA = resa_A.Scienza, oA = resa_A.Oro, pA = resa_A.Produzione, cA = resa_A.Cultura, fA = resa_A.Fede;
     const sB = resa_B.Scienza, oB = resa_B.Oro, pB = resa_B.Produzione, cB = resa_B.Cultura, fB = resa_B.Fede;
     return (sA >= sB && oA >= oB && pA >= pB && cA >= cB && fA >= fB) &&
-           (sA > sB || oA > oB || pA > pB || cA > cB || fA > fB);
+        (sA > sB || oA > oB || pA > pB || cA > cB || fA > fB);
 }
 
 function aggiorna_fronte_pareto(fronte_attuale, nuove_soluzioni) {
     const unici = new Map();
-    
+
     for (let sol of fronte_attuale) {
         const k = `${sol.rese.Scienza},${sol.rese.Oro},${sol.rese.Produzione},${sol.rese.Cultura},${sol.rese.Fede}`;
         unici.set(k, sol);
@@ -395,6 +324,37 @@ function aggiorna_fronte_pareto(fronte_attuale, nuove_soluzioni) {
     return Array.from(unici.values());
 }
 
+// Calcolo Crowding Distance per NSGA-II
+function calcola_crowding_distance(fronte) {
+    if (fronte.length <= 2) return;
+
+    for (let sol of fronte) sol.distanza = 0;
+    const obiettivi = ["Scienza", "Oro", "Produzione", "Cultura", "Fede"];
+
+    for (let obj of obiettivi) {
+        fronte.sort((a, b) => a.rese[obj] - b.rese[obj]);
+
+        fronte[0].distanza = Infinity;
+        fronte[fronte.length - 1].distanza = Infinity;
+
+        const range = fronte[fronte.length - 1].rese[obj] - fronte[0].rese[obj];
+        if (range === 0) continue;
+
+        for (let i = 1; i < fronte.length - 1; i++) {
+            if (fronte[i].distanza !== Infinity) {
+                fronte[i].distanza += (fronte[i + 1].rese[obj] - fronte[i - 1].rese[obj]) / range;
+            }
+        }
+    }
+}
+
+function tronca_archivio_nsga2(archivio, max_size = 100) {
+    if (archivio.length <= max_size) return archivio;
+    calcola_crowding_distance(archivio);
+    archivio.sort((a, b) => b.distanza - a.distanza);
+    return archivio.slice(0, max_size);
+}
+
 function shuffle(array) {
     for (let i = array.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
@@ -425,13 +385,51 @@ function genera_layout_casuale_valido(mappa, distretti) {
     return layout;
 }
 
+function crossover_spaziale(layout_madre, layout_padre, mappa, distretti_da_piazzare) {
+    const layout_figlio = new Map();
+    const posizioni_occupate = new Set();
+
+    for (let distretto of distretti_da_piazzare) {
+        const pos_A = layout_madre.get(distretto);
+        const pos_B = layout_padre.get(distretto);
+
+        if (!pos_A || !pos_B) continue;
+
+        let scelta_primaria = Math.random() < 0.5 ? pos_A : pos_B;
+        let scelta_secondaria = scelta_primaria === pos_A ? pos_B : pos_A;
+
+        if (!posizioni_occupate.has(scelta_primaria.hashKey()) && verifica_vincoli(distretto, scelta_primaria, mappa)) {
+            layout_figlio.set(distretto, scelta_primaria);
+            posizioni_occupate.add(scelta_primaria.hashKey());
+        }
+        else if (!posizioni_occupate.has(scelta_secondaria.hashKey()) && verifica_vincoli(distretto, scelta_secondaria, mappa)) {
+            layout_figlio.set(distretto, scelta_secondaria);
+            posizioni_occupate.add(scelta_secondaria.hashKey());
+        }
+        else {
+            const celle_valide = Array.from(mappa.celle.values())
+                .map(c => c.esagono)
+                .filter(esag => esag.distanza_dal_centro() <= 3 &&
+                    !posizioni_occupate.has(esag.hashKey()) &&
+                    verifica_vincoli(distretto, esag, mappa));
+
+            if (celle_valide.length > 0) {
+                const random_pos = celle_valide[Math.floor(Math.random() * celle_valide.length)];
+                layout_figlio.set(distretto, random_pos);
+                posizioni_occupate.add(random_pos.hashKey());
+            }
+        }
+    }
+    return layout_figlio;
+}
+
 function mutazione_intelligente(layout, mappa) {
     if (layout.size === 0) return new Map();
-    
+
     const nuovo_layout = new Map(layout);
     const keys = Array.from(nuovo_layout.keys());
     const dist_da_mutare = keys[Math.floor(Math.random() * keys.length)];
-    
+
     nuovo_layout.delete(dist_da_mutare);
 
     const celle_valide = Array.from(mappa.celle.values())
@@ -454,47 +452,56 @@ function mutazione_intelligente(layout, mappa) {
 
 // --- GESTIONE WEB WORKER ASINCRONA ---
 async function runOttimizzazione(citta, distretti, generazioni, popSize) {
-    self.postMessage({ 
-        type: 'PROGRESS', 
-        message: `Generazione popolazione iniziale (0/${popSize})...`, 
-        percent: 0 
-    });
+    self.postMessage({ type: 'PROGRESS', message: `Inizializzazione popolazione...`, percent: 0 });
 
     let popolazione = [];
+
     for (let i = 0; i < popSize; i++) {
         const layout = genera_layout_casuale_valido(citta, distretti);
-        const rese = simula_layout_con_distruzione(citta, layout);
+        const rese = calcola_rese_ottimizzata(citta, layout);
         popolazione.push({ layout: layout, rese: rese });
     }
 
-    self.postMessage({ 
-        type: 'PROGRESS', 
-        message: `Calcolo fronte di Pareto iniziale...`, 
-        percent: 5 
-    });
-
     let archivio_pareto = aggiorna_fronte_pareto([], popolazione);
+    const MAX_ARCHIVE_SIZE = 100;
+    archivio_pareto = tronca_archivio_nsga2(archivio_pareto, MAX_ARCHIVE_SIZE);
 
-    // Yield periodicamente per permettere ai messaggi di ui di passare il thread principale
     for (let gen = 0; gen < generazioni; gen++) {
         if (gen % 10 === 0) {
-            self.postMessage({ type: 'PROGRESS', message: `Elaborazione generazione ${gen}/${generazioni}...`, percent: 5 + (gen / generazioni) * 85 });
-            // Yield to event loop
+            self.postMessage({ type: 'PROGRESS', message: `Generazione ${gen}/${generazioni} (Fronte: ${archivio_pareto.length} ottimi)...`, percent: 5 + (gen / generazioni) * 85 });
             await new Promise(r => setTimeout(r, 0));
         }
 
         let nuovi_candidati = [];
-        for (let padre of archivio_pareto) {
-            for (let i = 0; i < 8; i++) {
-                const layout_figlio = mutazione_intelligente(padre.layout, citta);
-                const rese_figlio = simula_layout_con_distruzione(citta, layout_figlio);
-                nuovi_candidati.push({ layout: layout_figlio, rese: rese_figlio });
+
+        // Fase 1: Crossover tra elementi dell'archivio Pareto
+        for (let i = 0; i < popSize / 2; i++) {
+            const padreA = archivio_pareto[Math.floor(Math.random() * archivio_pareto.length)];
+            const padreB = archivio_pareto[Math.floor(Math.random() * archivio_pareto.length)];
+
+            let layout_figlio = crossover_spaziale(padreA.layout, padreB.layout, citta, distretti);
+
+            // Fase 2: Mutazione genetica (30%)
+            if (Math.random() < 0.3) {
+                layout_figlio = mutazione_intelligente(layout_figlio, citta);
             }
+
+            const rese_figlio = calcola_rese_ottimizzata(citta, layout_figlio);
+            nuovi_candidati.push({ layout: layout_figlio, rese: rese_figlio });
         }
+
+        // Fase 3: Mutazioni dirette per esplorare aree isolate del fronte
+        for (let padre of archivio_pareto) {
+            const layout_mutato = mutazione_intelligente(padre.layout, citta);
+            const rese_mutate = calcola_rese_ottimizzata(citta, layout_mutato);
+            nuovi_candidati.push({ layout: layout_mutato, rese: rese_mutate });
+        }
+
         archivio_pareto = aggiorna_fronte_pareto(archivio_pareto, nuovi_candidati);
+        archivio_pareto = tronca_archivio_nsga2(archivio_pareto, MAX_ARCHIVE_SIZE);
     }
 
-    self.postMessage({ type: 'PROGRESS', message: `Ottimizzazione completata. Ordino i risultati...`, percent: 95 });
+    self.postMessage({ type: 'PROGRESS', message: `Chiusura elaborazione...`, percent: 95 });
     await new Promise(r => setTimeout(r, 0));
 
     try {
@@ -503,13 +510,6 @@ async function runOttimizzazione(citta, distretti, generazioni, popSize) {
             if (a.rese.Produzione !== b.rese.Produzione) return b.rese.Produzione - a.rese.Produzione;
             return b.rese.Fede - a.rese.Fede;
         });
-        
-        // LIMITARE IL NUMERO DI RISULTATI PER STABILITÀ
-        if (archivio_pareto.length > 50) {
-            archivio_pareto = archivio_pareto.slice(0, 50);
-        }
-
-        self.postMessage({ type: 'PROGRESS', message: `Preparazione JSON...`, percent: 97 });
 
         const data = {
             celle: [],
@@ -518,9 +518,7 @@ async function runOttimizzazione(citta, distretti, generazioni, popSize) {
 
         for (let cella of citta.celle.values()) {
             data.celle.push({
-                q: cella.esagono.q,
-                r: cella.esagono.r,
-                s: cella.esagono.s,
+                q: cella.esagono.q, r: cella.esagono.r, s: cella.esagono.s,
                 caratteristiche: Array.from(cella.caratteristiche),
                 distretto_base: cella.distretto
             });
@@ -541,13 +539,13 @@ async function runOttimizzazione(citta, distretti, generazioni, popSize) {
 
         self.postMessage({ type: 'COMPLETE', data: data });
     } catch (err) {
-        self.postMessage({ type: 'ERROR', message: "Errore durante l'assemblamento dati: " + err.toString() });
+        self.postMessage({ type: 'ERROR', message: "Errore finale: " + err.toString() });
     }
 }
 
-self.onmessage = function(e) {
+self.onmessage = function (e) {
     const { message, cityData, userDistricts } = e.data;
-    
+
     if (message === 'START_OPTIMIZATION') {
         const { generations, populationSize } = e.data;
         try {
@@ -559,7 +557,7 @@ self.onmessage = function(e) {
 
             const GENERAZIONI = generations || 500;
             const DIMENSIONE_POPOLAZIONE = populationSize || 1000;
-            
+
             runOttimizzazione(citta, distretti, GENERAZIONI, DIMENSIONE_POPOLAZIONE).catch(error => {
                 self.postMessage({ type: 'ERROR', message: error.toString() });
             });
@@ -569,11 +567,3 @@ self.onmessage = function(e) {
         }
     }
 };
-
-    </script>
-    <!-- Caricamento dei dati esportati da simulatore.py -->
-    <script src="data.js"></script>
-    <!-- Logica del viewer -->
-    <script src="script.js"></script>
-</body>
-</html>

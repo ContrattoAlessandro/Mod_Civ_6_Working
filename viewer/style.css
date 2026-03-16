@@ -254,3 +254,114 @@ body {
 ::-webkit-scrollbar-thumb:hover {
     background: rgba(255,255,255,0.2);
 }
+
+/* Additional UI elements for Optimizer Form */
+.setup-section {
+    border-bottom: 1px solid var(--border-color);
+    padding-bottom: 20px;
+}
+
+#cityDataInput {
+    width: 100%;
+    height: 120px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 10px;
+    border-radius: 6px;
+    font-family: monospace;
+    font-size: 11px;
+    resize: vertical;
+    margin-bottom: 10px;
+}
+
+.districts-selector {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+    margin-bottom: 15px;
+}
+
+.district-checkbox {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    cursor: pointer;
+}
+
+.district-checkbox input {
+    accent-color: var(--accent);
+}
+
+.optimizer-params {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+.param-group {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.param-group label {
+    font-size: 10px;
+}
+
+.param-group input {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    padding: 6px;
+    border-radius: 4px;
+    font-size: 13px;
+}
+
+.btn-primary {
+    background: var(--accent);
+    color: #fff;
+    border: none;
+    padding: 10px 15px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    width: 100%;
+}
+
+.btn-primary:hover {
+    background: var(--accent-hover);
+}
+
+.btn-primary:active {
+    transform: scale(0.98);
+}
+
+#progressContainer {
+    margin-top: 15px;
+}
+
+#progressText {
+    font-size: 11px;
+    color: var(--text-secondary);
+    margin-bottom: 4px;
+    text-align: center;
+}
+
+.progress-bar {
+    width: 100%;
+    height: 6px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+#progressFill {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    transition: width 0.1s linear;
+}

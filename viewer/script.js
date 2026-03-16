@@ -47,35 +47,130 @@ const COLORS = {
 };
 
 // Inizializzazione
+let optimizerWorker = null;
+
+// Rendi globale CIV6_DATA inizialmente vuota per non rompere roba se la mod non ha esportato nulla
+window.CIV6_DATA = window.CIV6_DATA || { celle: [], soluzioni: [] };
+
 window.onload = () => {
     initCanvas();
     buildSidebar();
-    
+    initSetupUI();
+
     // Centra la telecamera
-    if(CIV6_DATA.celle.length > 0) {
+    if (CIV6_DATA.celle.length > 0) {
         cameraX = window.innerWidth / 2;
         cameraY = window.innerHeight / 2;
     }
-    
+
     // Seleziona la prima soluzione di default
-    if(CIV6_DATA.soluzioni.length > 0) {
+    if (CIV6_DATA.soluzioni.length > 0) {
         selectSolution(0);
+        document.getElementById('resultsSection').style.display = 'block';
     }
-    
+
     draw();
 };
+
+function initSetupUI() {
+    const districts = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"];
+    const container = document.getElementById('districtsSelector');
+
+    districts.forEach(d => {
+        const label = document.createElement('label');
+        label.className = 'district-checkbox';
+        label.innerHTML = `<input type="checkbox" value="${d}" checked> ${d}`;
+        container.appendChild(label);
+    });
+
+    document.getElementById('btnOptimize').addEventListener('click', startOptimization);
+}
+
+function startOptimization() {
+    const cityData = document.getElementById('cityDataInput').value.trim();
+    if (!cityData) {
+        alert("Inserisci i dati del City Scanner!");
+        return;
+    }
+
+    const checkboxes = document.querySelectorAll('#districtsSelector input[type="checkbox"]:checked');
+    const userDistricts = Array.from(checkboxes).map(cb => cb.value);
+
+    if (userDistricts.length === 0) {
+        alert("Seleziona almeno un distretto!");
+        return;
+    }
+
+    // UI Updates
+    document.getElementById('btnOptimize').disabled = true;
+    document.getElementById('progressContainer').style.display = 'block';
+    document.getElementById('resultsSection').style.display = 'none';
+
+    if (optimizerWorker) {
+        optimizerWorker.terminate();
+    }
+
+    const workerCode = document.getElementById('worker-script').textContent;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    optimizerWorker = new Worker(URL.createObjectURL(blob));
+
+    optimizerWorker.onmessage = function (e) {
+        const msg = e.data;
+        if (msg.type === 'PROGRESS') {
+            document.getElementById('progressText').innerText = msg.message;
+            document.getElementById('progressFill').style.width = `${msg.percent}%`;
+        } else if (msg.type === 'COMPLETE') {
+            try {
+                CIV6_DATA = msg.data;
+                // alert("Debug: Ricevuto JSON con " + CIV6_DATA.soluzioni.length + " layout");
+
+                document.getElementById('btnOptimize').disabled = false;
+                document.getElementById('progressContainer').style.display = 'none';
+                document.getElementById('resultsSection').style.display = 'block';
+
+                // Re-inizializza la visualizzazione
+                cameraX = window.innerWidth / 2;
+                cameraY = window.innerHeight / 2;
+
+                buildSidebar();
+                if (CIV6_DATA.soluzioni.length > 0) {
+                    selectSolution(0);
+                }
+                draw();
+            } catch (err) {
+                alert("Errore in script.js: " + err.toString());
+            }
+
+        } else if (msg.type === 'ERROR') {
+            alert("Errore durante l'ottimizzazione: " + msg.message);
+            document.getElementById('btnOptimize').disabled = false;
+            document.getElementById('progressContainer').style.display = 'none';
+        }
+    };
+
+    const generations = parseInt(document.getElementById('inputGenerations').value) || 500;
+    const populationSize = parseInt(document.getElementById('inputPopulation').value) || 1000;
+
+    optimizerWorker.postMessage({
+        message: 'START_OPTIMIZATION',
+        cityData: cityData,
+        userDistricts: userDistricts,
+        generations: generations,
+        populationSize: populationSize
+    });
+}
 
 function initCanvas() {
     canvas = document.getElementById('hexCanvas');
     ctx = canvas.getContext('2d');
-    
+
     const resizeObserver = new ResizeObserver(() => {
         canvas.width = canvas.parentElement.clientWidth;
         canvas.height = canvas.parentElement.clientHeight;
         draw();
     });
     resizeObserver.observe(canvas.parentElement);
-    
+
     // Eventi Mouse
     canvas.addEventListener('mousedown', e => {
         isDragging = true;
@@ -83,42 +178,42 @@ function initCanvas() {
         startDragY = e.clientY - cameraY;
         canvas.style.cursor = 'grabbing';
     });
-    
+
     window.addEventListener('mouseup', () => {
         isDragging = false;
         canvas.style.cursor = 'grab';
     });
-    
+
     window.addEventListener('mousemove', e => {
         if (isDragging) {
             cameraX = e.clientX - startDragX;
             cameraY = e.clientY - startDragY;
             draw();
         }
-        
+
         // Calcolo Hover
         handleHover(e.clientX, e.clientY);
     });
-    
+
     canvas.addEventListener('wheel', e => {
         e.preventDefault();
         cameraY -= e.deltaY * 0.5;
         cameraX -= e.deltaX * 0.5;
         draw();
-    }, {passive: false});
+    }, { passive: false });
 }
 
 // Logica Hex
 function hexToPixel(q, r) {
-    const x = HEX_SIZE * Math.sqrt(3) * (q + r/2);
-    const y = HEX_SIZE * 3/2 * r;
+    const x = HEX_SIZE * Math.sqrt(3) * (q + r / 2);
+    const y = HEX_SIZE * 3 / 2 * r;
     return { x, y };
 }
 
 function pixelToHex(x, y) {
-    const q = (Math.sqrt(3)/3 * x - 1/3 * y) / HEX_SIZE;
-    const r = (2/3 * y) / HEX_SIZE;
-    return hexRound(q, r, -q-r);
+    const q = (Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE;
+    const r = (2 / 3 * y) / HEX_SIZE;
+    return hexRound(q, r, -q - r);
 }
 
 function hexRound(q, r, s) {
@@ -134,7 +229,7 @@ function hexRound(q, r, s) {
     else if (rDiff > sDiff) rr = -rq - rs;
     else rs = -rq - rr;
 
-    return {q: rq, r: rr, s: rs};
+    return { q: rq, r: rr, s: rs };
 }
 
 function getHexColor(cella) {
@@ -144,7 +239,7 @@ function getHexColor(cella) {
     if (cella.caratteristiche.includes('Bosco')) return COLORS.FEATURES['Bosco'];
     if (cella.caratteristiche.includes('Costa')) return COLORS.TERRAINS['TERRAIN_COAST'];
     if (cella.caratteristiche.includes('Lusso') || cella.caratteristiche.includes('Strategica')) return '#8c7e47';
-    
+
     return COLORS.TERRAINS['TERRAIN_PLAINS']; // Default
 }
 
@@ -159,10 +254,10 @@ function drawHex(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
         else ctx.lineTo(px, py);
     }
     ctx.closePath();
-    
+
     ctx.fillStyle = fillStyle;
     ctx.fill();
-    
+
     ctx.lineWidth = lineWidth;
     ctx.strokeStyle = strokeStyle;
     ctx.stroke();
@@ -170,30 +265,30 @@ function drawHex(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
 
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    
+
     ctx.save();
     ctx.translate(cameraX, cameraY);
-    
+
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
     let activeLayout = activeSolution ? activeSolution.layout : {};
-    
+
     // Disegna tutte le celle esportate
     CIV6_DATA.celle.forEach(cella => {
         const pos = hexToPixel(cella.q, cella.r);
-        
+
         let bgColor = getHexColor(cella);
         let strokeColor = 'rgba(255, 255, 255, 0.1)';
         let isHovered = hoveredHex && hoveredHex.q === cella.q && hoveredHex.r === cella.r;
-        
+
         if (isHovered) {
             strokeColor = 'rgba(255, 255, 255, 0.8)';
         }
 
         drawHex(pos.x, pos.y, HEX_SIZE - 1, bgColor, strokeColor, isHovered ? 2 : 1);
-        
+
         // Disegna Distretto (Centro Cittadino o dal Layout)
         let renderDistretto = cella.distretto_base;
-        
+
         // Controlla se la soluzione attuale piazza un distretto qui
         for (const [nome_distretto, p] of Object.entries(activeLayout)) {
             if (p.q === cella.q && p.r === cella.r) {
@@ -201,32 +296,32 @@ function draw() {
                 break;
             }
         }
-        
+
         if (renderDistretto) {
             drawHex(pos.x, pos.y, HEX_SIZE - 8, 'rgba(0,0,0,0.6)', COLORS.DISTRICTS[renderDistretto] || '#fff', 2);
-            
+
             // Text inside hex
             ctx.fillStyle = '#fff';
             ctx.font = '10px Inter';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-            
+
             // Abbreviazioni
             let txt = renderDistretto.substring(0, 3).toUpperCase();
-            if(renderDistretto === "Centro Cittadino") txt = "CC";
-            if(renderDistretto === "Hub Commerciale") txt = "HUB";
+            if (renderDistretto === "Centro Cittadino") txt = "CC";
+            if (renderDistretto === "Hub Commerciale") txt = "HUB";
             ctx.fillText(txt, pos.x, pos.y);
         }
-        
+
         // Overlay Fiume (Semplificato: testo blu)
-        if(cella.caratteristiche.includes('Fiume')) {
+        if (cella.caratteristiche.includes('Fiume')) {
             ctx.fillStyle = '#58a6ff';
             ctx.font = '12px Inter';
-            ctx.fillText('~', pos.x, pos.y + Math.floor(HEX_SIZE/2));
+            ctx.fillText('~', pos.x, pos.y + Math.floor(HEX_SIZE / 2));
         }
 
     });
-    
+
     ctx.restore();
 }
 
@@ -234,12 +329,12 @@ function draw() {
 function buildSidebar() {
     const list = document.getElementById('solutionsList');
     list.innerHTML = '';
-    
+
     CIV6_DATA.soluzioni.forEach((sol, index) => {
         const card = document.createElement('div');
         card.className = `solution-card ${sol.id === selectedSolutionId ? 'active' : ''}`;
         card.onclick = () => selectSolution(sol.id);
-        
+
         const r = sol.rese;
         card.innerHTML = `
             <div class="solution-title">
@@ -260,16 +355,16 @@ function buildSidebar() {
 
 function selectSolution(id) {
     selectedSolutionId = id;
-    
+
     // Update UI
     document.querySelectorAll('.solution-card').forEach(c => c.classList.remove('active'));
     setTimeout(() => {
         const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === id);
         const index = CIV6_DATA.soluzioni.indexOf(activeSolution);
         const cards = document.querySelectorAll('.solution-card');
-        if(cards[index]) cards[index].classList.add('active');
+        if (cards[index]) cards[index].classList.add('active');
     }, 10);
-    
+
     draw();
 }
 
@@ -278,12 +373,12 @@ function handleHover(mouseX, mouseY) {
     const rect = canvas.getBoundingClientRect();
     const x = mouseX - rect.left - cameraX;
     const y = mouseY - rect.top - cameraY;
-    
+
     const hex = pixelToHex(x, y);
-    
+
     // Controlla se l'hex è nella nostra mappa
     const cella = CIV6_DATA.celle.find(c => c.q === hex.q && c.r === hex.r);
-    
+
     if (cella) {
         if (!hoveredHex || hoveredHex.q !== hex.q || hoveredHex.r !== hex.r) {
             hoveredHex = hex;
@@ -291,9 +386,9 @@ function handleHover(mouseX, mouseY) {
             draw();
         } else {
             // Update tooltip position slightly
-             const tt = document.getElementById('tooltip');
-             tt.style.left = mouseX + 'px';
-             tt.style.top = mouseY + 'px';
+            const tt = document.getElementById('tooltip');
+            tt.style.left = mouseX + 'px';
+            tt.style.top = mouseY + 'px';
         }
     } else if (hoveredHex) {
         hoveredHex = null;
@@ -306,29 +401,29 @@ function updateTooltip(cella, mouseX, mouseY) {
     const tt = document.getElementById('tooltip');
     tt.style.left = mouseX + 'px';
     tt.style.top = mouseY + 'px';
-    
+
     let html = `
         <div class="tt-title">Coordinata: (${cella.q}, ${cella.r}, ${cella.s})</div>
     `;
-    
+
     if (cella.caratteristiche.length > 0) {
         html += `<div class="tt-features">${cella.caratteristiche.join(', ')}</div>`;
     } else {
         html += `<div class="tt-features">Pianura / Senza caratteristiche</div>`;
     }
-    
+
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
     let activeLayout = activeSolution ? activeSolution.layout : {};
-    
+
     let distretto = cella.distretto_base;
     for (const [nome, p] of Object.entries(activeLayout)) {
         if (p.q === cella.q && p.r === cella.r) distretto = nome;
     }
-    
+
     if (distretto) {
-         html += `<div class="tt-district">${distretto}</div>`;
+        html += `<div class="tt-district">${distretto}</div>`;
     }
-    
+
     tt.innerHTML = html;
     tt.classList.add('visible');
 }
