@@ -1,7 +1,7 @@
 import os
 
 # Cartella dei log di Civ 6
-LOG_DIR = r"C:\Users\alexa\AppData\Local\Firaxis Games\Sid Meier's Civilization VI\Logs"
+LOG_DIR = os.path.join(os.getenv('LOCALAPPDATA', ''), r"Firaxis Games\Sid Meier's Civilization VI\Logs")
 # File dove verranno salvati i dati estratti
 OUTPUT_FILE = "city_data_extracted.txt"
 

@@ -371,74 +371,30 @@ def mutazione_intelligente(layout, mappa):
 
 # --- ESECUZIONE ---
 
+import argparse
+
 if __name__ == "__main__":
-    # =========================================================================
-    # 1. COPIA E INCOLLA QUI I DATI DEL CITY SCANNER (Tra le triple virgolette)
-    # =========================================================================
-    city_data = """
-{'q': 0, 'r': -4, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 1, 'r': -4, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': -4, 's': 2, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 3, 'r': -4, 's': 1, 't': 'TERRAIN_DESERT_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 4, 'r': -4, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'RESOURCE_RICE', 'riv': false}
-{'q': -2, 'r': -3, 's': 5, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -1, 'r': -3, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': -3, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': false}
-{'q': 1, 'r': -3, 's': 2, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': -3, 's': 1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 3, 'r': -3, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true}
-{'q': -2, 'r': -2, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': false}
-{'q': -1, 'r': -2, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': -2, 's': 2, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 1, 'r': -2, 's': 1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': -2, 's': 0, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 3, 'r': -2, 's': -1, 't': 'TERRAIN_GRASS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false}
-{'q': 4, 'r': -2, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true}
-{'q': -4, 'r': -1, 's': 5, 't': 'TERRAIN_COAST', 'f': 'FEATURE_LAKE_RETBA', 'res': 'NONE', 'riv': false}
-{'q': -3, 'r': -1, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': -1, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_JADE', 'riv': false}
-{'q': -1, 'r': -1, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_JADE', 'riv': false}
-{'q': 0, 'r': -1, 's': 1, 't': 'TERRAIN_DESERT', 'f': 'FEATURE_OASIS', 'res': 'NONE', 'riv': false}
-{'q': 1, 'r': -1, 's': 0, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': -1, 's': -1, 't': 'TERRAIN_GRASS_HILLS', 'f': 'NONE', 'res': 'RESOURCE_IRON', 'riv': false}
-{'q': 3, 'r': -1, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false}
-{'q': -4, 'r': 0, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': false}
-{'q': -3, 'r': 0, 's': 3, 't': 'TERRAIN_COAST', 'f': 'FEATURE_LAKE_RETBA', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': 0, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -1, 'r': 0, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': 0, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 1, 'r': 0, 's': -1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': 0, 's': -2, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 3, 'r': 0, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 4, 'r': 0, 's': -4, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false}
-{'q': -5, 'r': 1, 's': 4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -4, 'r': 1, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': false}
-{'q': -3, 'r': 1, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': 1, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'RESOURCE_SILK', 'riv': false}
-{'q': -1, 'r': 1, 's': 0, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': 1, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_JADE', 'riv': false}
-{'q': 1, 'r': 1, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': 1, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_MAIZE', 'riv': false}
-{'q': -4, 'r': 2, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -3, 'r': 2, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': 2, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -1, 'r': 2, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': 2, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 1, 'r': 2, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false}
-{'q': 2, 'r': 2, 's': -4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -5, 'r': 3, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'RESOURCE_DEER', 'riv': false}
-{'q': -4, 'r': 3, 's': 1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -3, 'r': 3, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': 3, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -1, 'r': 3, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_MAIZE', 'riv': false}
-{'q': 0, 'r': 3, 's': -3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -4, 'r': 4, 's': 0, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -3, 'r': 4, 's': -1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': -2, 'r': 4, 's': -2, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'RESOURCE_SHEEP', 'riv': false}
-{'q': -1, 'r': 4, 's': -3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-{'q': 0, 'r': 4, 's': -4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false}
-    """
-    # =========================================================================
+    parser = argparse.ArgumentParser(description="Ottimizzatore Distretti Civ 6")
+    parser.add_argument("--input", "-i", type=str, default="city_data_extracted.txt", help="File contenente l'output del City Scanner")
+    args = parser.parse_args()
+
+    city_data = ""
+    # Prova a leggere il file
+    if os.path.exists(args.input):
+        print(f"Lettura dati della città da {args.input}...")
+        with open(args.input, "r", encoding="utf-8") as f:
+            city_data = f.read()
+    else:
+        print(f"ATTENZIONE: File {args.input} non trovato. Verranno usati i dati di fallback inclusi nello script.")
+        # =========================================================================
+        # DATI DI FALLBACK
+        # =========================================================================
+        city_data = """
+{'q': 0, 'r': 0, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': False}
+{'q': 1, 'r': 0, 's': -1, 't': 'TERRAIN_GRASS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': True}
+{'q': -1, 'r': 1, 's': 0, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': False}
+{'q': 0, 'r': 1, 's': -1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': False}
+        """
 
     print("Inizializzazione Simulatore con nuovi dati...")
     citta = MappaCitta()

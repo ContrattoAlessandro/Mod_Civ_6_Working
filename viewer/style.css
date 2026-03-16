@@ -264,15 +264,32 @@ body {
 #cityDataInput {
     width: 100%;
     height: 120px;
-    background: rgba(0,0,0,0.3);
-    border: 1px solid var(--border-color);
+    background: rgba(13, 17, 23, 0.8);
+    border: 1px solid rgba(255, 255, 255, 0.15);
     color: var(--text-primary);
-    padding: 10px;
-    border-radius: 6px;
-    font-family: monospace;
+    padding: 12px;
+    border-radius: 8px;
+    font-family: 'Consolas', 'Courier New', monospace;
     font-size: 11px;
+    line-height: 1.4;
     resize: vertical;
     margin-bottom: 10px;
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.3);
+}
+
+#cityDataInput:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px rgba(88, 166, 255, 0.2), inset 0 2px 4px rgba(0,0,0,0.3);
+    background: rgba(13, 17, 23, 1);
+}
+
+#cityDataInput::placeholder {
+    color: rgba(139, 148, 158, 0.6);
+    font-family: 'Inter', sans-serif;
+    font-style: italic;
+    font-size: 12px;
 }
 
 .districts-selector {

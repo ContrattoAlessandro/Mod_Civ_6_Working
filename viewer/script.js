@@ -56,6 +56,12 @@ window.onload = () => {
     initCanvas();
     buildSidebar();
     initSetupUI();
+    initDragAndDrop();
+
+    // Auto-reload check if running on local server
+    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
+        setInterval(checkAutoReload, 2000);
+    }
 
     // Centra la telecamera
     if (CIV6_DATA.celle.length > 0) {
@@ -71,6 +77,94 @@ window.onload = () => {
 
     draw();
 };
+
+let lastKnownData = "";
+
+async function checkAutoReload() {
+    try {
+        const response = await fetch('/city_data_extracted.txt?t=' + Date.now());
+        if (response.ok) {
+            const text = await response.text();
+            if (text.trim() && text !== lastKnownData) {
+                lastKnownData = text;
+                const textArea = document.getElementById('cityDataInput');
+                if (textArea.value !== text && text.includes('{')) {
+                    textArea.value = text;
+                    console.log("Nuovi dati rilevati dal server, avvio ottimizzazione...");
+                    // Only auto-start optimization if the user has selected at least one district
+                    const checkboxes = document.querySelectorAll('#districtsSelector input[type="checkbox"]:checked');
+                    if (checkboxes.length > 0) {
+                        startOptimization();
+                    }
+                }
+            }
+        }
+    } catch (e) {
+        // Ignora: l'auto-reload fallisce (es. aperto in locale file:///)
+    }
+}
+
+function initDragAndDrop() {
+    const dropZone = document.getElementById('cityDataInput');
+    
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.border = '2px dashed #58a6ff';
+        dropZone.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+    });
+    
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.style.border = '';
+        dropZone.style.backgroundColor = '';
+    });
+    
+    dropZone.addEventListener('drop', (e) => {
+        e.preventDefault();
+        dropZone.style.border = '';
+        dropZone.style.backgroundColor = '';
+        if (e.dataTransfer.files.length) {
+            const file = e.dataTransfer.files[0];
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const text = e.target.result;
+                if (file.name.toLowerCase().includes('lua')) {
+                    const extracted = estraiDaLua(text);
+                    if (extracted) {
+                        document.getElementById('cityDataInput').value = extracted;
+                    } else {
+                        alert("Non ho trovato i dati del City Scanner in questo file Lua.");
+                    }
+                } else {
+                    document.getElementById('cityDataInput').value = text;
+                }
+            };
+            reader.readAsText(file);
+        }
+    });
+}
+
+function estraiDaLua(text) {
+    const lines = text.split('\n');
+    const dati_estratti = [];
+    let trovato_fine = false;
+    for (let i = lines.length - 1; i >= 0; i--) {
+        const line = lines[i];
+        if (line.includes('--- END CITY DATA SCAN ---')) {
+             trovato_fine = true;
+             continue;
+        }
+        if (trovato_fine) {
+             if (line.includes('--- START CITY DATA SCAN ---')) break;
+             if (line.includes('{') && line.includes('}')) {
+                 const parti = line.split("CityScanner: ");
+                 let riga_dati = (parti.length > 1) ? parti[1].trim() : line.trim();
+                 if (riga_dati.startsWith("{")) dati_estratti.push(riga_dati);
+             }
+        }
+    }
+    return dati_estratti.length ? dati_estratti.reverse().join('\n') : null;
+}
 
 function initSetupUI() {
     const districts = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"];
