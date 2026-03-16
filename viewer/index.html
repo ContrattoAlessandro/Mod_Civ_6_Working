@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Civ 6 Optimizer - Viewer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Barra Laterale (Menu) -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>Civ 6 Optimizer</h1>
+                <p>Layout Generator Viewer</p>
+            </div>
+            
+            <div class="controls">
+                <label>Fronte di Pareto</label>
+                <div class="solutions-list" id="solutionsList">
+                    <!-- Cards iniettate da JS -->
+                </div>
+            </div>
+            
+            <div class="sidebar-footer">
+                <p>Usa la rotella o trascina per navigare la mappa.</p>
+            </div>
+        </aside>
+
+        <!-- Area Principale (Mappa) -->
+        <main class="map-container" id="mapContainer">
+            <canvas id="hexCanvas"></canvas>
+            
+            <!-- Tooltip per info su hover -->
+            <div class="tooltip" id="tooltip"></div>
+        </main>
+    </div>
+
+    <!-- Caricamento dei dati esportati da simulatore.py -->
+    <script src="data.js"></script>
+    <!-- Logica del viewer -->
+    <script src="script.js"></script>
+</body>
+</html>

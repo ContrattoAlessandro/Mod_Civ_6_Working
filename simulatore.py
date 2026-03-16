@@ -1,6 +1,8 @@
 import random
 import math
 import copy
+import json
+import os
 
 # --- STEP 1: STRUTTURE DATI (LA MAPPA) ---
 
@@ -103,7 +105,12 @@ class MappaCitta:
                     if "REEF" in f: cella.caratteristiche.add("Barriera Corallina")
                     if "GEOTHERMAL" in f: cella.caratteristiche.add("Fessura Geotermale")
                     if "FLOODPLAINS" in f: cella.caratteristiche.add("Pianura Alluvionale")
+                    if "OASIS" in f: cella.caratteristiche.add("Oasi")
+                    if "LAKE" in f or "LAKE" in data['t']: cella.caratteristiche.add("Lago")
                     
+                    if f.startswith("FEATURE_") and not any(x in f for x in ["JUNGLE", "FOREST", "REEF", "GEOTHERMAL", "OASIS", "FLOODPLAINS", "ICE", "MARSH", "VOLCANO"]):
+                        cella.caratteristiche.add("Meraviglia Naturale")
+
                     res = data['res']
                     if res != "NONE":
                         # Strategiche (Danno +1 alla ZI)
@@ -154,7 +161,13 @@ def verifica_vincoli(distretto, esagono, mappa):
     if distretto == "Diga":
         return "Pianura Alluvionale" in cella.caratteristiche
 
-    # Regole Acquedotto (Deve toccare Centro Città AND [Fiume OR Montagna])
+    # Regole Accampamento (NON può essere adiacente al Centro Città)
+    if distretto == "Accampamento":
+        adiacenti = esagono.adiacenti()
+        tocca_centro = any(adj.q == 0 and adj.r == 0 for adj in adiacenti)
+        if tocca_centro: return False
+
+    # Regole Acquedotto (Deve toccare Centro Città AND [Fiume OR Montagna OR Lago OR Oasi])
     if distretto == "Acquedotto":
         adiacenti = esagono.adiacenti()
         tocca_centro = any(adj.q == 0 and adj.r == 0 for adj in adiacenti)
@@ -163,7 +176,7 @@ def verifica_vincoli(distretto, esagono, mappa):
         tocca_acqua = False
         for adj in adiacenti:
             c_adj = mappa.celle.get(adj)
-            if c_adj and ("Fiume" in c_adj.caratteristiche or "Montagna" in c_adj.caratteristiche):
+            if c_adj and ("Fiume" in c_adj.caratteristiche or "Montagna" in c_adj.caratteristiche or "Lago" in c_adj.caratteristiche or "Oasi" in c_adj.caratteristiche):
                 tocca_acqua = True
                 break
         return tocca_acqua
@@ -173,7 +186,7 @@ def verifica_vincoli(distretto, esagono, mappa):
 # --- STEP 3: MOTORE DELLE REGOLE ---
 
 def calcola_rese(mappa):
-    rese = {"Scienza": 0, "Oro": 0, "Produzione": 0}
+    rese = {"Scienza": 0, "Oro": 0, "Produzione": 0, "Cultura": 0, "Fede": 0}
     dettagli = {}
 
     for esagono, cella in mappa.celle.items():
@@ -191,8 +204,8 @@ def calcola_rese(mappa):
 
         if distretto == "Campus":
             m = sum(1 for c in celle_adiacenti if "Montagna" in c.caratteristiche)
-            b = sum(1 for c in celle_adiacenti if "Barriera Corallina" in c.caratteristiche)
-            g = sum(1 for c in celle_adiacenti if "Fessura Geotermale" in c.caratteristiche)
+            b = sum(2 for c in celle_adiacenti if "Barriera Corallina" in c.caratteristiche)
+            g = sum(2 for c in celle_adiacenti if "Fessura Geotermale" in c.caratteristiche)
             f = sum(1 for c in celle_adiacenti if "Foresta Pluviale" in c.caratteristiche)
             resa_locale = m + b + g + math.floor(f / 2) + bonus_distretti_generico
             rese["Scienza"] += resa_locale
@@ -211,18 +224,36 @@ def calcola_rese(mappa):
 
         elif distretto == "Zona Industriale":
             ad = sum(2 for c in celle_adiacenti if c.distretto in ["Acquedotto", "Diga"])
-            s = sum(1 for c in celle_adiacenti if "Risorsa Strategica" in c.caratteristiche)
-            q = sum(1 for c in celle_adiacenti if "Potenziale Cava" in c.caratteristiche)
+            s = sum(1 for c in celle_adiacenti if "Risorsa Strategica" in c.caratteristiche and c.distretto is None)
+            q = sum(1 for c in celle_adiacenti if "Potenziale Cava" in c.caratteristiche and c.distretto is None)
             
             # Bonus +0.5 da Miniere e Segherie (si sommano prima del floor)
             # Assumiamo Miniere su Colline o Risorse Minerarie, e Segherie su Boschi
-            num_miniere = sum(1 for c in celle_adiacenti if "Collina" in c.caratteristiche or "Potenziale Miniera" in c.caratteristiche)
-            num_segherie = sum(1 for c in celle_adiacenti if "Bosco" in c.caratteristiche)
+            num_miniere = sum(1 for c in celle_adiacenti if ("Collina" in c.caratteristiche or "Potenziale Miniera" in c.caratteristiche) and c.distretto is None)
+            num_segherie = sum(1 for c in celle_adiacenti if "Bosco" in c.caratteristiche and c.distretto is None)
             
             # In Civ 6: +2 Acq/Diga, +1 Strategica/Cava, +0.5 Miniera/Segheria
             # Nota: math.floor((m+s)/2) è la corretta implementazione del +0.5 cumulativo
             resa_locale = ad + s + q + math.floor((num_miniere + num_segherie) / 2) + bonus_distretti_generico
             rese["Produzione"] += resa_locale
+
+        elif distretto == "Piazza del Teatro":
+            resa_locale = bonus_distretti_generico
+            # Civ 6 base non ha bonus naturali per il Teatro, ma solo per Meraviglie o Complessi
+            rese["Cultura"] += resa_locale
+
+        elif distretto == "Accampamento":
+            # Civ 6 base: non ha bonus naturali, ma può ricevere il bonus +0.5 standard
+            # dagli altri distretti o +1 dalla Piazza del Governo.
+            resa_locale = bonus_distretti_generico
+            rese["Produzione"] += resa_locale
+
+        elif distretto == "Luogo Santo":
+            m = sum(1 for c in celle_adiacenti if "Montagna" in c.caratteristiche)
+            mn = sum(2 for c in celle_adiacenti if "Meraviglia Naturale" in c.caratteristiche)
+            bo = sum(1 for c in celle_adiacenti if "Bosco" in c.caratteristiche and c.distretto is None)
+            resa_locale = m + mn + math.floor(bo / 2) + bonus_distretti_generico
+            rese["Fede"] += resa_locale
 
     return rese
 
@@ -248,9 +279,9 @@ def simula_layout_con_distruzione(mappa, layout):
     return rese
 
 def domina(resa_A, resa_B):
-    sA, oA, pA = resa_A['Scienza'], resa_A['Oro'], resa_A['Produzione']
-    sB, oB, pB = resa_B['Scienza'], resa_B['Oro'], resa_B['Produzione']
-    return (sA >= sB and oA >= oB and pA >= pB) and (sA > sB or oA > oB or pA > pB)
+    sA, oA, pA, cA, fA = resa_A['Scienza'], resa_A['Oro'], resa_A['Produzione'], resa_A['Cultura'], resa_A['Fede']
+    sB, oB, pB, cB, fB = resa_B['Scienza'], resa_B['Oro'], resa_B['Produzione'], resa_B['Cultura'], resa_B['Fede']
+    return (sA >= sB and oA >= oB and pA >= pB and cA >= cB and fA >= fB) and (sA > sB or oA > oB or pA > pB or cA > cB or fA > fB)
 
 def aggiorna_fronte_pareto(fronte_attuale, nuove_soluzioni):
     """Mantiene solo le soluzioni non dominate."""
@@ -266,8 +297,45 @@ def aggiorna_fronte_pareto(fronte_attuale, nuove_soluzioni):
         if not dominato:
             fronte_nuovo.append((lay_A, res_A))
             
-    unici = { (r['Scienza'], r['Oro'], r['Produzione']): (l, r) for l, r in fronte_nuovo }
+    unici = { (r['Scienza'], r['Oro'], r['Produzione'], r['Cultura'], r['Fede']): (l, r) for l, r in fronte_nuovo }
     return list(unici.values())
+
+def esporta_per_web(mappa, archivio_pareto, directory="viewer", filename="data.js"):
+    """Esporta i dati della mappa e le soluzioni in un file JS leggibile dal web viewer."""
+    if not os.path.exists(directory):
+        os.makedirs(directory)
+        
+    data = {
+        "celle": [],
+        "soluzioni": []
+    }
+    
+    # Esporta la mappa base
+    for esagono, cella in mappa.celle.items():
+        data["celle"].append({
+            "q": esagono.q,
+            "r": esagono.r,
+            "s": esagono.s,
+            "caratteristiche": list(cella.caratteristiche),
+            "distretto_base": cella.distretto # es. Centro Cittadino
+        })
+        
+    # Esporta il fronte di Pareto
+    for i, (layout, rese) in enumerate(archivio_pareto):
+        layout_esportabile = {}
+        for dist_nome, pos in layout.items():
+            layout_esportabile[dist_nome] = {"q": pos.q, "r": pos.r, "s": pos.s}
+            
+        data["soluzioni"].append({
+            "id": i,
+            "rese": rese,
+            "layout": layout_esportabile
+        })
+        
+    filepath = os.path.join(directory, filename)
+    with open(filepath, 'w', encoding='utf-8') as f:
+        f.write("const CIV6_DATA = " + json.dumps(data, indent=2) + ";")
+    print(f"\n[+] Dati esportati con successo per il Web Viewer in: {filepath}")
 
 def genera_layout_casuale_valido(mappa, distretti):
     """Genera un layout casuale. Ignora i distretti impossibili da piazzare."""
@@ -376,11 +444,27 @@ if __name__ == "__main__":
     citta = MappaCitta()
     citta.importa_da_stringa(city_data)
     
-    # Ordiniamo per stringenza dei vincoli.
-    distretti = ["Diga", "Acquedotto", "Porto", "Campus", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"]
+    # --- CONFIGURAZIONE UTENTE ---
+    # Scegli quali distretti includere nel calcolo commentando o rimuovendo quelli non desiderati.
+    distretti_utente = [
+        "Diga", 
+        "Acquedotto", 
+        "Porto", 
+        "Campus", 
+        "Piazza del Teatro", 
+        "Luogo Santo", 
+        "Zona Industriale", 
+        "Hub Commerciale", 
+        "Piazza del Governo",
+        "Accampamento"
+    ]
+    
+    # Ordiniamo per stringenza dei vincoli predefinita.
+    ord_priorita = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"]
+    distretti = [d for d in ord_priorita if d in distretti_utente]
 
-    GENERAZIONI = 100 
-    DIMENSIONE_POPOLAZIONE = 150
+    GENERAZIONI = 500 
+    DIMENSIONE_POPOLAZIONE = 1000
     
     popolazione = []
     print("\nGenerazione della popolazione iniziale in corso...")
@@ -404,13 +488,13 @@ if __name__ == "__main__":
         archivio_pareto = aggiorna_fronte_pareto(archivio_pareto, nuovi_candidati)
 
     print("\n--- FRONTE DI PARETO OTTIMIZZATO ---")
-    print("Scienza | Oro | Produzione | Dettaglio Layout Completo")
+    print("Scienza | Oro | Prod | Cultura | Fede | Dettaglio Layout Completo")
     print("-" * 120)
     
-    archivio_pareto.sort(key=lambda x: x[1]['Scienza'], reverse=True)
+    archivio_pareto.sort(key=lambda x: (x[1]['Scienza'], x[1]['Produzione'], x[1]['Fede']), reverse=True)
     
     for layout, rese in archivio_pareto:
-        print(f"   {rese['Scienza']:2d}   | {rese['Oro']:2d}  |     {rese['Produzione']:2d}     | ", end="")
+        print(f"   {rese['Scienza']:2d}   | {rese['Oro']:2d}  |  {rese['Produzione']:2d}  |    {rese['Cultura']:2d}   |  {rese['Fede']:2d}  | ", end="")
         
         # Stampa dinamica di tutti i distretti effettivamente piazzati in questo layout
         info = []
@@ -419,7 +503,10 @@ if __name__ == "__main__":
                 "Hub Commerciale": "Hub", 
                 "Piazza del Governo": "Gov", 
                 "Zona Industriale": "ZI",
-                "Acquedotto": "Acq"
+                "Acquedotto": "Acq",
+                "Piazza del Teatro": "Teatro",
+                "Luogo Santo": "Santo",
+                "Accampamento": "Acc"
             }.get(dist_nome, dist_nome)
             
             # Recuperiamo i dettagli della cella per aiutare l'utente
@@ -441,3 +528,6 @@ if __name__ == "__main__":
         
     print("\n[!] NOTA: La mappa è generata fino a raggio 4 per calcolare i bonus esterni. ")
     print("Se la Diga o l'Acquedotto non compaiono in riga, significa che la mappa non aveva caselle valide per ospitarli.")
+    
+    # Esporta i dati per il visualizzatore web
+    esporta_per_web(citta, archivio_pareto)
