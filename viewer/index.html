@@ -17,8 +17,11 @@
             </div>
             
             <div class="controls setup-section">
-                <label for="cityDataInput">Dati City Scanner:</label>
-                <textarea id="cityDataInput" class="dropzone" placeholder="Incolla o trascina qui il file Lua.log o l'output..."></textarea>
+                <label>Dati City Scanner:</label>
+                <div id="fileStatusContainer" class="dropzone">
+                    <p id="fileStatusText">Trascina qui il file <b>Lua.log</b><br>oppure</p>
+                    <button id="btnSelectLua" class="btn-secondary">Seleziona Lua.log</button>
+                </div>
                 
                 <div class="districts-selector" id="districtsSelector">
                    <!-- Populated by JS -->

@@ -51,17 +51,18 @@ let optimizerWorker = null;
 
 // Rendi globale CIV6_DATA inizialmente vuota per non rompere roba se la mod non ha esportato nulla
 window.CIV6_DATA = window.CIV6_DATA || { celle: [], soluzioni: [] };
+window.extractedCityData = null; // Memorizza i dati del City Scanner
+
+let logFileHandle = null;
+let lastModifiedTime = 0;
+let pollingIntervalId = null;
 
 window.onload = () => {
     initCanvas();
     buildSidebar();
     initSetupUI();
     initDragAndDrop();
-
-    // Auto-reload check if running on local server
-    if (window.location.hostname === 'localhost' || window.location.hostname === '127.0.0.1') {
-        setInterval(checkAutoReload, 2000);
-    }
+    initFilePicker();
 
     // Centra la telecamera
     if (CIV6_DATA.celle.length > 0) {
@@ -78,34 +79,156 @@ window.onload = () => {
     draw();
 };
 
-let lastKnownData = "";
+// Funzione FilePicker
+function initFilePicker() {
+    const btnSelectLua = document.getElementById('btnSelectLua');
+    if(btnSelectLua) {
+        btnSelectLua.addEventListener('click', async () => {
+            try {
+                // Opzioni opzionali, ma utili per suggerire il file
+                const pickerOpts = {
+                    types: [
+                        {
+                            description: 'Text Files',
+                            accept: {
+                                'text/plain': ['.log', '.txt'],
+                            },
+                        },
+                    ],
+                    excludeAcceptAllOption: false,
+                    multiple: false,
+                };
+                
+                // Mostra il picker all'utente
+                [logFileHandle] = await window.showOpenFilePicker(pickerOpts);
+                
+                // Aggiorna UI
+                const textEl = document.getElementById('fileStatusText');
+                if (textEl) {
+                    textEl.innerHTML = `File selezionato:<br><b>${logFileHandle.name}</b>`;
+                }
 
-async function checkAutoReload() {
-    try {
-        const response = await fetch('/city_data_extracted.txt?t=' + Date.now());
-        if (response.ok) {
-            const text = await response.text();
-            if (text.trim() && text !== lastKnownData) {
-                lastKnownData = text;
-                const textArea = document.getElementById('cityDataInput');
-                if (textArea.value !== text && text.includes('{')) {
-                    textArea.value = text;
-                    console.log("Nuovi dati rilevati dal server, avvio ottimizzazione...");
-                    // Only auto-start optimization if the user has selected at least one district
-                    const checkboxes = document.querySelectorAll('#districtsSelector input[type="checkbox"]:checked');
-                    if (checkboxes.length > 0) {
-                        startOptimization();
-                    }
+                // Leggi subito il file
+                await pollFileForChanges();
+
+                // Avvia il polling (ogni 2 secondi)
+                if (pollingIntervalId) clearInterval(pollingIntervalId);
+                pollingIntervalId = setInterval(pollFileForChanges, 2000);
+
+            } catch (err) {
+                // L'utente ha annullato la selezione o altro errore
+                if (err.name !== 'AbortError') {
+                    console.error("Errore durante la selezione del file:", err);
+                    alert("Impossibile accedere al file: " + err.message);
                 }
             }
+        });
+    }
+}
+
+async function pollFileForChanges() {
+    if (!logFileHandle) return;
+
+    try {
+        const file = await logFileHandle.getFile();
+        if (file.lastModified > lastModifiedTime) {
+            lastModifiedTime = file.lastModified;
+            
+            // Il file è stato aggiornato, leggiamolo
+            const text = await file.text();
+            processRawLogText(text);
         }
-    } catch (e) {
-        // Ignora: l'auto-reload fallisce (es. aperto in locale file:///)
+    } catch (err) {
+        console.error("Errore durante la lettura del file in background:", err);
+        // Potremmo aver perso i permessi, es. se l'utente ricarica la pagina.
+        clearInterval(pollingIntervalId);
+        const textEl = document.getElementById('fileStatusText');
+        if (textEl) textEl.innerHTML = "<em>Permesso perso. Seleziona nuovamente il file.</em>";
+    }
+}
+
+function processRawLogText(text) {
+    let extracted = null;
+    if (text.includes('--- START CITY DATA SCAN ---')) {
+        extracted = estraiDaLua(text);
+    } else {
+        // Se non sembra un log Lua, forse è già il testo json in formato raw? 
+        if (text.trim().startsWith('{')) {
+            extracted = text;
+        }
+    }
+
+    if (extracted) {
+        if (window.extractedCityData !== extracted) {
+            window.extractedCityData = extracted;
+            document.getElementById('fileStatusText').innerHTML = `Dati Città: <b>Trovati</b><br><small>Ultimo agg: ${new Date().toLocaleTimeString()}</small>`;
+            triggerMapUpdate();
+        }
+    } else {
+         document.getElementById('fileStatusText').innerHTML = `In attesa dei dati scan...<br><small>Esegui lo scanner in gioco.</small>`;
+    }
+}
+
+function triggerMapUpdate() {
+   // Usa un worker finto che genera solo la mappa per non bloccare la UI,
+   // o se i dati non sono tantissimi, si può decodificare sincrono.
+   // Per semplicità e pulizia, lo decodifico pseudo-sincronamente o mi affido al try/catch qua:
+   
+    try {
+         // Piccolo hack per parsare la pseudo-stringa usata nel worker, che non è JSON puro ma output python/lua
+         const linee = window.extractedCityData.trim().split("\n");
+         const nuoveCelle = [];
+         
+         for (let l of linee) {
+            l = l.trim();
+            if (l.startsWith("{")) {
+                let jsonStr = l.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
+                const data = (new Function('return ' + jsonStr))();
+                if (data.q === undefined || data.r === undefined) continue;
+
+                const c = {
+                    q: data.q, r: data.r, s: data.s,
+                    caratteristiche: [],
+                    distretto_base: null
+                };
+
+                if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
+                if (data.t && data.t.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
+                if (data.t && data.t.includes("HILL")) c.caratteristiche.push("Collina");
+                if (data.t && data.t.includes("COAST")) c.caratteristiche.push("Costa");
+                if (data.riv) c.caratteristiche.push("Fiume");
+
+                const f = data.f || "NONE";
+                if (f.includes("JUNGLE")) c.caratteristiche.push("Foresta Pluviale");
+                if (f.includes("FOREST")) c.caratteristiche.push("Bosco");
+                if (f.includes("LAKE") || (data.t && data.t.includes("LAKE"))) c.caratteristiche.push("Lago");
+
+                const res = data.res || "NONE";
+                if (res !== "NONE") {
+                     // Semplificato per visualizzazione base prima dell'opt
+                     if (res.includes("COAL") || res.includes("IRON") || res.includes("NITER")) c.caratteristiche.push("Strategica");
+                     else c.caratteristiche.push("Lusso"); // fallback visivo
+                }
+                
+                nuoveCelle.push(c);
+            }
+         }
+
+         if(nuoveCelle.length > 0) {
+             window.CIV6_DATA = { celle: nuoveCelle, soluzioni: [] };
+             document.getElementById('resultsSection').style.display = 'none'; // Nascondi vecchi risultati
+             cameraX = window.innerWidth / 2;
+             cameraY = window.innerHeight / 2;
+             draw();
+         }
+
+    } catch(e) {
+        console.error("Errore nel parsing per preview mappa:", e);
     }
 }
 
 function initDragAndDrop() {
-    const dropZone = document.getElementById('cityDataInput');
+    const dropZone = document.getElementById('fileStatusContainer');
     
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
@@ -115,31 +238,25 @@ function initDragAndDrop() {
     
     dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault();
-        dropZone.style.border = '';
+        dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
     });
     
-    dropZone.addEventListener('drop', (e) => {
+    dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
-        dropZone.style.border = '';
+        dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
         if (e.dataTransfer.files.length) {
             const file = e.dataTransfer.files[0];
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                const text = e.target.result;
-                if (file.name.toLowerCase().includes('lua')) {
-                    const extracted = estraiDaLua(text);
-                    if (extracted) {
-                        document.getElementById('cityDataInput').value = extracted;
-                    } else {
-                        alert("Non ho trovato i dati del City Scanner in questo file Lua.");
-                    }
-                } else {
-                    document.getElementById('cityDataInput').value = text;
-                }
-            };
-            reader.readAsText(file);
+            
+            // Check if multiple drag handles exist - optional depending on need
+            const textEl = document.getElementById('fileStatusText');
+            if (textEl) {
+                textEl.innerHTML = `File caricato:<br><b>${file.name}</b>`;
+            }
+
+            const text = await file.text();
+            processRawLogText(text);
         }
     });
 }
@@ -181,9 +298,9 @@ function initSetupUI() {
 }
 
 function startOptimization() {
-    const cityData = document.getElementById('cityDataInput').value.trim();
+    const cityData = window.extractedCityData;
     if (!cityData) {
-        alert("Inserisci i dati del City Scanner!");
+        alert("Nessun dato City Scanner caricato!");
         return;
     }
 
