@@ -38,6 +38,7 @@ class Cella {
         this.esagono = esagono;
         this.caratteristiche = new Set();
         this.distretto = null;
+        this.riverEdges = 0; // <-- NUOVO: Aggiungiamo la proprietà
     }
 }
 
@@ -82,6 +83,7 @@ class MappaCitta {
 
                     if (this.celle.has(hash)) {
                         const cella = this.celle.get(hash);
+                        cella.riverEdges = data.rivEdges || 0;
 
                         if (data.q === 0 && data.r === 0) {
                             cella.distretto = "Centro Cittadino";
@@ -155,7 +157,9 @@ function verifica_vincoli(distretto, esagono, mappa) {
     if (distretto === "Porto") return is_costa;
     if (is_costa && distretto !== "Porto") return false;
 
-    if (distretto === "Diga") return cella.caratteristiche.has("Pianura Alluvionale");
+    if (distretto === "Diga") {
+        return cella.caratteristiche.has("Pianura Alluvionale") && cella.riverEdges >= 2;
+    }
 
     if (distretto === "Accampamento") {
         const adiacenti = esagono.adiacenti();

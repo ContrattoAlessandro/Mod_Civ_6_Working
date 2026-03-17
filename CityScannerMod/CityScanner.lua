@@ -37,14 +37,41 @@ function OnCitySelectionChanged(playerID, cityID, i, j, k, isSelected, isKeySele
             local relS = ps - cs;
 
             local terrainType = pPlot:GetTerrainType() ~= -1 and GameInfo.Terrains[pPlot:GetTerrainType()].TerrainType or
-                "NONE";
+            "NONE";
             local featureType = pPlot:GetFeatureType() ~= -1 and GameInfo.Features[pPlot:GetFeatureType()].FeatureType or
-                "NONE";
+            "NONE";
             local resourceType = pPlot:GetResourceType() ~= -1 and
-                GameInfo.Resources[pPlot:GetResourceType()].ResourceType or "NONE";
+            GameInfo.Resources[pPlot:GetResourceType()].ResourceType or "NONE";
 
-            local plotStr = string.format("{'q': %d, 'r': %d, 's': %d, 't': '%s', 'f': '%s', 'res': '%s', 'riv': %s}",
-                relQ, relR, relS, terrainType, featureType, resourceType, tostring(pPlot:IsRiver()));
+            -- NUOVO: Conta su quanti lati scorre il fiume calcolando i vicini in coordinate cubiche
+            local riverEdges = 0;
+            local cubicDirections = {
+                { 1,  0, -1 }, { 1, -1, 0 }, { 0, -1, 1 },
+                { -1, 0, 1 }, { -1, 1, 0 }, { 0, 1, -1 }
+            };
+
+            for _, dir in ipairs(cubicDirections) do
+                -- Coordinate cubiche della cella adiacente
+                local adjQ = pq + dir[1];
+                local adjR = pr + dir[2];
+
+                -- Formula inversa: da Cubiche a Offset (X, Y) per trovare l'indice nella mappa
+                local adjX = adjQ + math.floor((adjR - (adjR % 2)) / 2);
+                local adjY = adjR;
+
+                -- Otteniamo l'oggetto "plot" adiacente usando le sue coordinate reali
+                local pAdj = Map.GetPlot(adjX, adjY);
+
+                -- Se la cella adiacente esiste, controlliamo se il fiume passa sul bordo in mezzo a loro
+                if pAdj and pPlot:IsRiverCrossingToPlot(pAdj) then
+                    riverEdges = riverEdges + 1;
+                end
+            end
+
+            -- MODIFICATO: Aggiunto 'rivEdges' all'output JSON
+            local plotStr = string.format(
+                "{'q': %d, 'r': %d, 's': %d, 't': '%s', 'f': '%s', 'res': '%s', 'riv': %s, 'rivEdges': %d}",
+                relQ, relR, relS, terrainType, featureType, resourceType, tostring(pPlot:IsRiver()), riverEdges);
             print(plotStr);
         end
     end

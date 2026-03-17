@@ -82,7 +82,7 @@ window.onload = () => {
 // Funzione FilePicker
 function initFilePicker() {
     const btnSelectLua = document.getElementById('btnSelectLua');
-    if(btnSelectLua) {
+    if (btnSelectLua) {
         btnSelectLua.addEventListener('click', async () => {
             try {
                 // Opzioni opzionali, ma utili per suggerire il file
@@ -98,10 +98,10 @@ function initFilePicker() {
                     excludeAcceptAllOption: false,
                     multiple: false,
                 };
-                
+
                 // Mostra il picker all'utente
                 [logFileHandle] = await window.showOpenFilePicker(pickerOpts);
-                
+
                 // Aggiorna UI
                 const textEl = document.getElementById('fileStatusText');
                 if (textEl) {
@@ -133,7 +133,7 @@ async function pollFileForChanges() {
         const file = await logFileHandle.getFile();
         if (file.lastModified > lastModifiedTime) {
             lastModifiedTime = file.lastModified;
-            
+
             // Il file è stato aggiornato, leggiamolo
             const text = await file.text();
             processRawLogText(text);
@@ -165,21 +165,21 @@ function processRawLogText(text) {
             triggerMapUpdate();
         }
     } else {
-         document.getElementById('fileStatusText').innerHTML = `In attesa dei dati scan...<br><small>Esegui lo scanner in gioco.</small>`;
+        document.getElementById('fileStatusText').innerHTML = `In attesa dei dati scan...<br><small>Esegui lo scanner in gioco.</small>`;
     }
 }
 
 function triggerMapUpdate() {
-   // Usa un worker finto che genera solo la mappa per non bloccare la UI,
-   // o se i dati non sono tantissimi, si può decodificare sincrono.
-   // Per semplicità e pulizia, lo decodifico pseudo-sincronamente o mi affido al try/catch qua:
-   
+    // Usa un worker finto che genera solo la mappa per non bloccare la UI,
+    // o se i dati non sono tantissimi, si può decodificare sincrono.
+    // Per semplicità e pulizia, lo decodifico pseudo-sincronamente o mi affido al try/catch qua:
+
     try {
-         // Piccolo hack per parsare la pseudo-stringa usata nel worker, che non è JSON puro ma output python/lua
-         const linee = window.extractedCityData.trim().split("\n");
-         const nuoveCelle = [];
-         
-         for (let l of linee) {
+        // Piccolo hack per parsare la pseudo-stringa usata nel worker, che non è JSON puro ma output python/lua
+        const linee = window.extractedCityData.trim().split("\n");
+        const nuoveCelle = [];
+
+        for (let l of linee) {
             l = l.trim();
             if (l.startsWith("{")) {
                 let jsonStr = l.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
@@ -189,7 +189,8 @@ function triggerMapUpdate() {
                 const c = {
                     q: data.q, r: data.r, s: data.s,
                     caratteristiche: [],
-                    distretto_base: null
+                    distretto_base: null,
+                    riverEdges: data.rivEdges || 0 // <-- NUOVO: Mantiene il dato per l'UI e il passaggio dati
                 };
 
                 if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
@@ -205,50 +206,50 @@ function triggerMapUpdate() {
 
                 const res = data.res || "NONE";
                 if (res !== "NONE") {
-                     // Semplificato per visualizzazione base prima dell'opt
-                     if (res.includes("COAL") || res.includes("IRON") || res.includes("NITER")) c.caratteristiche.push("Strategica");
-                     else c.caratteristiche.push("Lusso"); // fallback visivo
+                    // Semplificato per visualizzazione base prima dell'opt
+                    if (res.includes("COAL") || res.includes("IRON") || res.includes("NITER")) c.caratteristiche.push("Strategica");
+                    else c.caratteristiche.push("Lusso"); // fallback visivo
                 }
-                
+
                 nuoveCelle.push(c);
             }
-         }
+        }
 
-         if(nuoveCelle.length > 0) {
-             window.CIV6_DATA = { celle: nuoveCelle, soluzioni: [] };
-             document.getElementById('resultsSection').style.display = 'none'; // Nascondi vecchi risultati
-             cameraX = window.innerWidth / 2;
-             cameraY = window.innerHeight / 2;
-             draw();
-         }
+        if (nuoveCelle.length > 0) {
+            window.CIV6_DATA = { celle: nuoveCelle, soluzioni: [] };
+            document.getElementById('resultsSection').style.display = 'none'; // Nascondi vecchi risultati
+            cameraX = window.innerWidth / 2;
+            cameraY = window.innerHeight / 2;
+            draw();
+        }
 
-    } catch(e) {
+    } catch (e) {
         console.error("Errore nel parsing per preview mappa:", e);
     }
 }
 
 function initDragAndDrop() {
     const dropZone = document.getElementById('fileStatusContainer');
-    
+
     dropZone.addEventListener('dragover', (e) => {
         e.preventDefault();
         dropZone.style.border = '2px dashed #58a6ff';
         dropZone.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
     });
-    
+
     dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault();
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
     });
-    
+
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
         if (e.dataTransfer.files.length) {
             const file = e.dataTransfer.files[0];
-            
+
             // Check if multiple drag handles exist - optional depending on need
             const textEl = document.getElementById('fileStatusText');
             if (textEl) {
@@ -268,16 +269,16 @@ function estraiDaLua(text) {
     for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
         if (line.includes('--- END CITY DATA SCAN ---')) {
-             trovato_fine = true;
-             continue;
+            trovato_fine = true;
+            continue;
         }
         if (trovato_fine) {
-             if (line.includes('--- START CITY DATA SCAN ---')) break;
-             if (line.includes('{') && line.includes('}')) {
-                 const parti = line.split("CityScanner: ");
-                 let riga_dati = (parti.length > 1) ? parti[1].trim() : line.trim();
-                 if (riga_dati.startsWith("{")) dati_estratti.push(riga_dati);
-             }
+            if (line.includes('--- START CITY DATA SCAN ---')) break;
+            if (line.includes('{') && line.includes('}')) {
+                const parti = line.split("CityScanner: ");
+                let riga_dati = (parti.length > 1) ? parti[1].trim() : line.trim();
+                if (riga_dati.startsWith("{")) dati_estratti.push(riga_dati);
+            }
         }
     }
     return dati_estratti.length ? dati_estratti.reverse().join('\n') : null;
@@ -622,6 +623,11 @@ function updateTooltip(cella, mouseX, mouseY) {
         html += `<div class="tt-features">${cella.caratteristiche.join(', ')}</div>`;
     } else {
         html += `<div class="tt-features">Pianura / Senza caratteristiche</div>`;
+    }
+
+    // NUOVO: Mostra quanti lati del fiume tocca la cella
+    if (cella.riverEdges > 0) {
+        html += `<div class="tt-features" style="color: #58a6ff;">Lati Fiume: ${cella.riverEdges}</div>`;
     }
 
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
