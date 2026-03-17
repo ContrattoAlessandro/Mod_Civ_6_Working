@@ -417,11 +417,12 @@ function initCanvas() {
 // Logica Hex
 function hexToPixel(q, r) {
     const x = HEX_SIZE * Math.sqrt(3) * (q + r / 2);
-    const y = HEX_SIZE * 3 / 2 * r;
+    const y = -(HEX_SIZE * 3 / 2 * r);
     return { x, y };
 }
 
 function pixelToHex(x, y) {
+    y = -y;
     const q = (Math.sqrt(3) / 3 * x - 1 / 3 * y) / HEX_SIZE;
     const r = (2 / 3 * y) / HEX_SIZE;
     return hexRound(q, r, -q - r);

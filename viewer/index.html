@@ -1,5 +1,6 @@
 <!DOCTYPE html>
 <html lang="it">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -7,6 +8,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
+
 <body>
     <div class="app-container">
         <!-- Barra Laterale (Menu) -->
@@ -15,16 +17,16 @@
                 <h1>Civ 6 Optimizer</h1>
                 <p>Layout Generator Viewer</p>
             </div>
-            
+
             <div class="controls setup-section">
                 <label>Dati City Scanner:</label>
                 <div id="fileStatusContainer" class="dropzone">
                     <p id="fileStatusText">Trascina qui il file <b>Lua.log</b><br>oppure</p>
                     <button id="btnSelectLua" class="btn-secondary">Seleziona Lua.log</button>
                 </div>
-                
+
                 <div class="districts-selector" id="districtsSelector">
-                   <!-- Populated by JS -->
+                    <!-- Populated by JS -->
                 </div>
 
                 <div class="optimizer-params">
@@ -41,7 +43,9 @@
                 <button id="btnOptimize" class="btn-primary">Avvia Ottimizzazione</button>
                 <div id="progressContainer" style="display: none;">
                     <div id="progressText">Inizializzazione...</div>
-                    <div class="progress-bar"><div id="progressFill"></div></div>
+                    <div class="progress-bar">
+                        <div id="progressFill"></div>
+                    </div>
                 </div>
             </div>
 
@@ -51,7 +55,7 @@
                     <!-- Cards iniettate da JS -->
                 </div>
             </div>
-            
+
             <div class="sidebar-footer">
                 <p>Usa la rotella o trascina per navigare la mappa.</p>
             </div>
@@ -60,7 +64,7 @@
         <!-- Area Principale (Mappa) -->
         <main class="map-container" id="mapContainer">
             <canvas id="hexCanvas"></canvas>
-            
+
             <!-- Tooltip per info su hover -->
             <div class="tooltip" id="tooltip"></div>
         </main>
@@ -579,4 +583,5 @@ self.onmessage = function(e) {
     <!-- Logica del viewer -->
     <script src="script.js"></script>
 </body>
+
 </html>

@@ -2,7 +2,7 @@
 -- Scans city surroundings and prints for Python use with Cubic Coordinates.
 
 function OffsetToCubic(x, y)
-    local q = x - (y + (y % 2)) / 2
+    local q = x - (y - (y % 2)) / 2
     local r = y
     return q, r, -q - r
 end
@@ -37,11 +37,11 @@ function OnCitySelectionChanged(playerID, cityID, i, j, k, isSelected, isKeySele
             local relS = ps - cs;
 
             local terrainType = pPlot:GetTerrainType() ~= -1 and GameInfo.Terrains[pPlot:GetTerrainType()].TerrainType or
-            "NONE";
+                "NONE";
             local featureType = pPlot:GetFeatureType() ~= -1 and GameInfo.Features[pPlot:GetFeatureType()].FeatureType or
-            "NONE";
+                "NONE";
             local resourceType = pPlot:GetResourceType() ~= -1 and
-            GameInfo.Resources[pPlot:GetResourceType()].ResourceType or "NONE";
+                GameInfo.Resources[pPlot:GetResourceType()].ResourceType or "NONE";
 
             local plotStr = string.format("{'q': %d, 'r': %d, 's': %d, 't': '%s', 'f': '%s', 'res': '%s', 'riv': %s}",
                 relQ, relR, relS, terrainType, featureType, resourceType, tostring(pPlot:IsRiver()));
