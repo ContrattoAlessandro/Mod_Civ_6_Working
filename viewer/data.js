@@ -57,9 +57,9 @@ let CIV6_DATA = {
       "r": 0,
       "s": 3,
       "caratteristiche": [
-        "Lago",
+        "Meraviglia Naturale",
         "Costa",
-        "Meraviglia Naturale"
+        "Lago"
       ],
       "distretto_base": null
     },
@@ -123,8 +123,8 @@ let CIV6_DATA = {
       "r": 1,
       "s": 1,
       "caratteristiche": [
-        "Bosco",
-        "Risorsa Lusso"
+        "Risorsa Lusso",
+        "Bosco"
       ],
       "distretto_base": null
     },
@@ -147,8 +147,8 @@ let CIV6_DATA = {
       "r": 4,
       "s": -2,
       "caratteristiche": [
-        "Risorsa Bonus",
-        "Collina"
+        "Collina",
+        "Risorsa Bonus"
       ],
       "distretto_base": null
     },
@@ -508,34 +508,29 @@ let CIV6_DATA = {
         "Fede": 0
       },
       "layout": {
+        "Piazza del Governo": {
+          "q": 0,
+          "r": -2,
+          "s": 2
+        },
         "Campus": {
           "q": 0,
           "r": -1,
           "s": 1
-        },
-        "Zona Industriale": {
-          "q": 2,
-          "r": -2,
-          "s": 0
         },
         "Hub Commerciale": {
           "q": 2,
           "r": -3,
           "s": 1
         },
-        "Piazza del Governo": {
-          "q": 0,
-          "r": -2,
-          "s": 2
-        },
         "Accampamento": {
           "q": 1,
           "r": -2,
           "s": 1
         },
-        "Diga": {
-          "q": 3,
-          "r": -3,
+        "Zona Industriale": {
+          "q": 2,
+          "r": -2,
           "s": 0
         },
         "Acquedotto": {
@@ -544,9 +539,14 @@ let CIV6_DATA = {
           "s": 0
         },
         "Porto": {
-          "q": -3,
-          "r": 0,
-          "s": 3
+          "q": 0,
+          "r": 3,
+          "s": -3
+        },
+        "Diga": {
+          "q": 3,
+          "r": -3,
+          "s": 0
         }
       }
     },
@@ -560,9 +560,19 @@ let CIV6_DATA = {
         "Fede": 0
       },
       "layout": {
+        "Piazza del Governo": {
+          "q": 0,
+          "r": -2,
+          "s": 2
+        },
         "Campus": {
           "q": 0,
           "r": -1,
+          "s": 1
+        },
+        "Accampamento": {
+          "q": 1,
+          "r": -2,
           "s": 1
         },
         "Zona Industriale": {
@@ -570,34 +580,24 @@ let CIV6_DATA = {
           "r": -2,
           "s": 0
         },
-        "Piazza del Governo": {
-          "q": 0,
-          "r": -2,
-          "s": 2
-        },
-        "Accampamento": {
+        "Acquedotto": {
           "q": 1,
-          "r": -2,
-          "s": 1
+          "r": -1,
+          "s": 0
         },
         "Hub Commerciale": {
-          "q": 1,
-          "r": -3,
-          "s": 2
+          "q": -1,
+          "r": 3,
+          "s": -2
+        },
+        "Porto": {
+          "q": 0,
+          "r": 3,
+          "s": -3
         },
         "Diga": {
           "q": 3,
           "r": -3,
-          "s": 0
-        },
-        "Porto": {
-          "q": -3,
-          "r": 0,
-          "s": 3
-        },
-        "Acquedotto": {
-          "q": 1,
-          "r": -1,
           "s": 0
         }
       }
@@ -612,10 +612,20 @@ let CIV6_DATA = {
         "Fede": 0
       },
       "layout": {
-        "Piazza del Governo": {
-          "q": 1,
-          "r": 1,
+        "Accampamento": {
+          "q": -1,
+          "r": 3,
           "s": -2
+        },
+        "Zona Industriale": {
+          "q": 2,
+          "r": -2,
+          "s": 0
+        },
+        "Piazza del Governo": {
+          "q": -1,
+          "r": 2,
+          "s": -1
         },
         "Campus": {
           "q": 0,
@@ -623,34 +633,24 @@ let CIV6_DATA = {
           "s": -2
         },
         "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
-          "s": -2
-        },
-        "Accampamento": {
           "q": 1,
           "r": 2,
           "s": -3
         },
-        "Zona Industriale": {
-          "q": 2,
-          "r": -2,
+        "Acquedotto": {
+          "q": 1,
+          "r": -1,
           "s": 0
-        },
-        "Porto": {
-          "q": 0,
-          "r": 3,
-          "s": -3
         },
         "Diga": {
           "q": 3,
           "r": -3,
           "s": 0
         },
-        "Acquedotto": {
-          "q": 1,
-          "r": -1,
-          "s": 0
+        "Porto": {
+          "q": 0,
+          "r": 3,
+          "s": -3
         }
       }
     },
@@ -665,28 +665,13 @@ let CIV6_DATA = {
       },
       "layout": {
         "Accampamento": {
-          "q": 1,
-          "r": 2,
-          "s": -3
-        },
-        "Hub Commerciale": {
           "q": -1,
           "r": 3,
           "s": -2
         },
-        "Piazza del Governo": {
-          "q": -1,
-          "r": 2,
-          "s": -1
-        },
         "Zona Industriale": {
           "q": 2,
           "r": -2,
-          "s": 0
-        },
-        "Acquedotto": {
-          "q": 1,
-          "r": -1,
           "s": 0
         },
         "Campus": {
@@ -694,15 +679,30 @@ let CIV6_DATA = {
           "r": 2,
           "s": -2
         },
-        "Porto": {
-          "q": 0,
-          "r": 3,
+        "Hub Commerciale": {
+          "q": 1,
+          "r": 2,
           "s": -3
+        },
+        "Acquedotto": {
+          "q": 1,
+          "r": -1,
+          "s": 0
         },
         "Diga": {
           "q": 3,
           "r": -3,
           "s": 0
+        },
+        "Porto": {
+          "q": 0,
+          "r": 3,
+          "s": -3
+        },
+        "Piazza del Governo": {
+          "q": 1,
+          "r": 1,
+          "s": -2
         }
       }
     },
@@ -716,45 +716,45 @@ let CIV6_DATA = {
         "Fede": 0
       },
       "layout": {
-        "Campus": {
-          "q": 0,
-          "r": 2,
-          "s": -2
-        },
         "Accampamento": {
-          "q": 1,
-          "r": 2,
-          "s": -3
-        },
-        "Hub Commerciale": {
           "q": -1,
           "r": 3,
           "s": -2
         },
         "Piazza del Governo": {
-          "q": -1,
+          "q": 1,
+          "r": 1,
+          "s": -2
+        },
+        "Campus": {
+          "q": 0,
           "r": 2,
-          "s": -1
+          "s": -2
+        },
+        "Zona Industriale": {
+          "q": 2,
+          "r": 1,
+          "s": -3
+        },
+        "Acquedotto": {
+          "q": 1,
+          "r": -1,
+          "s": 0
+        },
+        "Diga": {
+          "q": 3,
+          "r": -3,
+          "s": 0
         },
         "Porto": {
           "q": 0,
           "r": 3,
           "s": -3
         },
-        "Zona Industriale": {
-          "q": -2,
-          "r": 3,
-          "s": -1
-        },
-        "Acquedotto": {
-          "q": -1,
-          "r": 0,
-          "s": 1
-        },
-        "Diga": {
-          "q": 3,
-          "r": -3,
-          "s": 0
+        "Hub Commerciale": {
+          "q": 1,
+          "r": 2,
+          "s": -3
         }
       }
     },
@@ -773,15 +773,15 @@ let CIV6_DATA = {
           "r": -2,
           "s": 1
         },
-        "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
-          "s": -2
-        },
         "Campus": {
           "q": 1,
           "r": -3,
           "s": 2
+        },
+        "Zona Industriale": {
+          "q": 2,
+          "r": -2,
+          "s": 0
         },
         "Piazza del Governo": {
           "q": 2,
@@ -793,20 +793,20 @@ let CIV6_DATA = {
           "r": -1,
           "s": 0
         },
-        "Diga": {
-          "q": 3,
-          "r": -3,
-          "s": 0
-        },
-        "Zona Industriale": {
-          "q": 2,
-          "r": -2,
-          "s": 0
+        "Hub Commerciale": {
+          "q": 1,
+          "r": 2,
+          "s": -3
         },
         "Porto": {
           "q": 0,
           "r": 3,
           "s": -3
+        },
+        "Diga": {
+          "q": 3,
+          "r": -3,
+          "s": 0
         }
       }
     },
@@ -815,40 +815,35 @@ let CIV6_DATA = {
       "rese": {
         "Scienza": 2,
         "Oro": 3,
-        "Produzione": 11,
+        "Produzione": 10,
         "Cultura": 0,
         "Fede": 0
       },
       "layout": {
-        "Hub Commerciale": {
-          "q": 2,
-          "r": -3,
-          "s": 1
+        "Accampamento": {
+          "q": -1,
+          "r": 3,
+          "s": -2
         },
         "Zona Industriale": {
           "q": 2,
           "r": -2,
           "s": 0
         },
+        "Piazza del Governo": {
+          "q": -1,
+          "r": 2,
+          "s": -1
+        },
         "Campus": {
           "q": 0,
-          "r": -2,
-          "s": 2
+          "r": 2,
+          "s": -2
         },
-        "Piazza del Governo": {
-          "q": 1,
-          "r": -3,
-          "s": 2
-        },
-        "Accampamento": {
-          "q": 1,
-          "r": -2,
-          "s": 1
-        },
-        "Porto": {
-          "q": -3,
-          "r": 0,
-          "s": 3
+        "Hub Commerciale": {
+          "q": -2,
+          "r": 3,
+          "s": -1
         },
         "Acquedotto": {
           "q": 1,
@@ -859,6 +854,11 @@ let CIV6_DATA = {
           "q": 3,
           "r": -3,
           "s": 0
+        },
+        "Porto": {
+          "q": 0,
+          "r": 3,
+          "s": -3
         }
       }
     },
@@ -872,102 +872,50 @@ let CIV6_DATA = {
         "Fede": 0
       },
       "layout": {
-        "Campus": {
-          "q": 0,
-          "r": 2,
-          "s": -2
-        },
         "Zona Industriale": {
           "q": 2,
           "r": -2,
           "s": 0
         },
         "Piazza del Governo": {
-          "q": -1,
-          "r": 2,
-          "s": -1
-        },
-        "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
+          "q": 1,
+          "r": 1,
           "s": -2
         },
-        "Accampamento": {
-          "q": -2,
+        "Hub Commerciale": {
+          "q": 1,
+          "r": 2,
+          "s": -3
+        },
+        "Porto": {
+          "q": 0,
           "r": 3,
-          "s": -1
+          "s": -3
+        },
+        "Accampamento": {
+          "q": 2,
+          "r": 1,
+          "s": -3
         },
         "Acquedotto": {
           "q": 1,
           "r": -1,
           "s": 0
         },
+        "Campus": {
+          "q": 0,
+          "r": 2,
+          "s": -2
+        },
         "Diga": {
           "q": 3,
           "r": -3,
           "s": 0
-        },
-        "Porto": {
-          "q": 0,
-          "r": 3,
-          "s": -3
         }
       }
     },
     {
       "id": 8,
-      "rese": {
-        "Scienza": 2,
-        "Oro": 7,
-        "Produzione": 3,
-        "Cultura": 0,
-        "Fede": 0
-      },
-      "layout": {
-        "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
-          "s": -2
-        },
-        "Piazza del Governo": {
-          "q": 0,
-          "r": 2,
-          "s": -2
-        },
-        "Campus": {
-          "q": 1,
-          "r": 2,
-          "s": -3
-        },
-        "Accampamento": {
-          "q": -1,
-          "r": 2,
-          "s": -1
-        },
-        "Zona Industriale": {
-          "q": -2,
-          "r": 3,
-          "s": -1
-        },
-        "Acquedotto": {
-          "q": -1,
-          "r": 0,
-          "s": 1
-        },
-        "Porto": {
-          "q": 0,
-          "r": 3,
-          "s": -3
-        },
-        "Diga": {
-          "q": 3,
-          "r": -3,
-          "s": 0
-        }
-      }
-    },
-    {
-      "id": 9,
       "rese": {
         "Scienza": 1,
         "Oro": 4,
@@ -981,87 +929,35 @@ let CIV6_DATA = {
           "r": -2,
           "s": 1
         },
-        "Zona Industriale": {
-          "q": 2,
-          "r": -2,
-          "s": 0
-        },
-        "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
-          "s": -2
-        },
         "Piazza del Governo": {
           "q": 2,
           "r": -3,
           "s": 1
         },
-        "Acquedotto": {
-          "q": 1,
-          "r": -1,
-          "s": 0
+        "Hub Commerciale": {
+          "q": -1,
+          "r": 3,
+          "s": -2
         },
         "Campus": {
           "q": 0,
           "r": 2,
           "s": -2
-        },
-        "Diga": {
-          "q": 3,
-          "r": -3,
-          "s": 0
-        },
-        "Porto": {
-          "q": 0,
-          "r": 3,
-          "s": -3
-        }
-      }
-    },
-    {
-      "id": 10,
-      "rese": {
-        "Scienza": 1,
-        "Oro": 7,
-        "Produzione": 9,
-        "Cultura": 0,
-        "Fede": 0
-      },
-      "layout": {
-        "Campus": {
-          "q": -2,
-          "r": 3,
-          "s": -1
         },
         "Zona Industriale": {
           "q": 2,
           "r": -2,
           "s": 0
         },
-        "Accampamento": {
-          "q": -1,
-          "r": 2,
-          "s": -1
-        },
-        "Hub Commerciale": {
-          "q": -1,
-          "r": 3,
-          "s": -2
-        },
-        "Piazza del Governo": {
-          "q": 0,
-          "r": 2,
-          "s": -2
+        "Diga": {
+          "q": 3,
+          "r": -3,
+          "s": 0
         },
         "Porto": {
           "q": 0,
           "r": 3,
           "s": -3
-        },
-        "Diga": {
-          "q": 3,
-          "r": -3,
-          "s": 0
         },
         "Acquedotto": {
           "q": 1,
