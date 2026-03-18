@@ -10,6 +10,7 @@ let startDragX, startDragY;
 
 let selectedSolutionId = null;
 let hoveredHex = null;
+let currentSortKey = 'Scienza';
 
 // Colori Terreni e Feature
 const COLORS = {
@@ -197,11 +198,15 @@ function triggerMapUpdate() {
                 const data = (new Function('return ' + jsonStr))();
                 if (data.q === undefined || data.r === undefined) continue;
 
+                // Extract primary terrain type
+                const terrainType = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
+
                 const c = {
                     q: data.q, r: data.r, s: data.s,
                     caratteristiche: [],
                     distretto_base: null,
-                    riverEdges: data.rivEdges || 0 // <-- NUOVO: Mantiene il dato per l'UI e il passaggio dati
+                    riverEdges: data.rivEdges || 0,
+                    terrain: terrainType
                 };
 
                 if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
@@ -282,14 +287,14 @@ function convertPythonDictToJS(str) {
     // Sostituisci le chiavi con apici singoli: 'key' -> "key"
     // E i valori stringa con apici singoli: 'value' -> "value"
     let result = str;
-    
+
     // Converti True/False Python in true/false JS
     result = result.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
-    
+
     // Sostituisci tutti gli apici singoli con doppi apici
     // Ma attenzione a non rompere le stringhe che contengono apici
     result = result.replace(/'/g, '"');
-    
+
     return result;
 }
 
@@ -355,7 +360,7 @@ function initSetupUI() {
 function startOptimization() {
     const cityData = window.extractedCityData;
     if (!cityData) {
-        alert("Nessun dato City Scanner caricato!");
+        showNotification("Nessun dato City Scanner caricato!", 'error');
         return;
     }
 
@@ -363,7 +368,7 @@ function startOptimization() {
     const userDistricts = Array.from(checkboxes).map(cb => cb.value);
 
     if (userDistricts.length === 0) {
-        alert("Seleziona almeno un distretto!");
+        showNotification("Seleziona almeno un distretto!", 'error');
         return;
     }
 
@@ -404,11 +409,11 @@ function startOptimization() {
                 }
                 draw();
             } catch (err) {
-                alert("Errore in script.js: " + err.toString());
+                showNotification("Errore: " + err.toString(), 'error');
             }
 
         } else if (msg.type === 'ERROR') {
-            alert("Errore durante l'ottimizzazione: " + msg.message);
+            showNotification("Errore: " + msg.message, 'error');
             document.getElementById('btnOptimize').disabled = false;
             document.getElementById('progressContainer').classList.remove('visible');
         }
@@ -506,6 +511,11 @@ function getHexColor(cella) {
     if (cella.caratteristiche.includes('Bosco')) return COLORS.FEATURES['Bosco'];
     if (cella.caratteristiche.includes('Costa')) return COLORS.TERRAINS['TERRAIN_COAST'];
     if (cella.caratteristiche.includes('Lusso') || cella.caratteristiche.includes('Strategica')) return '#8c7e47';
+
+    // Use real terrain color if available
+    if (cella.terrain && COLORS.TERRAINS[cella.terrain]) {
+        return COLORS.TERRAINS[cella.terrain];
+    }
 
     return COLORS.TERRAINS['TERRAIN_PLAINS']; // Default
 }
@@ -605,6 +615,11 @@ function buildSidebar() {
     const list = document.getElementById('solutionsList');
     list.innerHTML = '';
 
+    // Sort solutions by current sort key
+    if (currentSortKey && CIV6_DATA.soluzioni.length > 0) {
+        CIV6_DATA.soluzioni.sort((a, b) => (b.rese[currentSortKey] || 0) - (a.rese[currentSortKey] || 0));
+    }
+
     CIV6_DATA.soluzioni.forEach((sol, index) => {
         const card = document.createElement('div');
         card.className = `solution-card ${sol.id === selectedSolutionId ? 'active' : ''}`;
@@ -645,6 +660,17 @@ function buildSidebar() {
     if (exportControls && CIV6_DATA.soluzioni.length > 0) {
         exportControls.style.display = 'flex';
     }
+}
+
+function sortSolutions(key) {
+    currentSortKey = key;
+    buildSidebar();
+    if (selectedSolutionId !== null) {
+        selectSolution(selectedSolutionId);
+    }
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.sort === key);
+    });
 }
 
 function selectSolution(id) {
@@ -713,6 +739,75 @@ function positionTooltip(mouseX, mouseY) {
     tt.style.top = y + 'px';
 }
 
+// Calculate individual district yield for tooltip
+function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
+    if (!activeSolution || !distrettoNome || distrettoNome === "Centro Cittadino") return null;
+
+    const direzioni = [
+        { q: 1, r: 0, s: -1 }, { q: 1, r: -1, s: 0 }, { q: 0, r: -1, s: 1 },
+        { q: -1, r: 0, s: 1 }, { q: -1, r: 1, s: 0 }, { q: 0, r: 1, s: -1 }
+    ];
+    const adiacenti = direzioni.map(d => ({ q: cella.q + d.q, r: cella.r + d.r, s: cella.s + d.s }));
+    const layout = activeSolution.layout;
+
+    const celleAdiacenti = adiacenti.map(adj => {
+        const c = CIV6_DATA.celle.find(cl => cl.q === adj.q && cl.r === adj.r);
+        if (!c) return null;
+        let dist = c.distretto_base;
+        for (const [nome, p] of Object.entries(layout)) {
+            if (p.q === c.q && p.r === c.r) { dist = nome; break; }
+        }
+        // Simulate feature destruction: when a district is placed on a cell,
+        // Bosco, Foresta Pluviale, and Risorsa Cava are destroyed
+        let caratt = [...c.caratteristiche];
+        if (dist && dist !== c.distretto_base) {
+            const distruttibili = ["Bosco", "Foresta Pluviale", "Risorsa Cava"];
+            caratt = caratt.filter(f => !distruttibili.includes(f));
+        }
+        return { ...c, caratteristiche: caratt, distretto_effettivo: dist };
+    }).filter(c => c !== null);
+
+    const numDistAdj = celleAdiacenti.filter(c => c.distretto_effettivo !== null).length;
+    const haGoverno = celleAdiacenti.some(c => c.distretto_effettivo === "Piazza del Governo");
+    let bonus = Math.floor(numDistAdj / 2) + (haGoverno ? 1 : 0);
+
+    let tipo = '', valore = 0;
+    if (distrettoNome === "Campus") {
+        const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
+        const b = celleAdiacenti.filter(c => c.caratteristiche.includes("Barriera Corallina")).length * 2;
+        const g = celleAdiacenti.filter(c => c.caratteristiche.includes("Fessura Geotermale")).length * 2;
+        const f = celleAdiacenti.filter(c => c.caratteristiche.includes("Foresta Pluviale")).length;
+        valore = m + b + g + Math.floor(f / 2) + bonus; tipo = 'Scienza';
+    } else if (distrettoNome === "Hub Commerciale") {
+        const haFiume = cella.caratteristiche.includes("Fiume") ? 2 : 0;
+        const p = celleAdiacenti.filter(c => c.distretto_effettivo === "Porto").length * 2;
+        valore = haFiume + p + bonus; tipo = 'Oro';
+    } else if (distrettoNome === "Porto") {
+        const cc = celleAdiacenti.filter(c => c.distretto_effettivo === "Centro Cittadino").length * 2;
+        const rm = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Marina")).length;
+        valore = cc + rm + bonus; tipo = 'Oro';
+    } else if (distrettoNome === "Zona Industriale") {
+        const ad = celleAdiacenti.filter(c => c.distretto_effettivo === "Acquedotto" || c.distretto_effettivo === "Diga").length * 2;
+        const s = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Strategica") && !c.distretto_effettivo).length;
+        const q = celleAdiacenti.filter(c => c.caratteristiche.includes("Potenziale Cava") && !c.distretto_effettivo).length;
+        const numMiniere = celleAdiacenti.filter(c => (c.caratteristiche.includes("Collina") || c.caratteristiche.includes("Potenziale Miniera")) && !c.distretto_effettivo).length;
+        const numSegherie = celleAdiacenti.filter(c => c.caratteristiche.includes("Bosco") && !c.distretto_effettivo).length;
+        valore = ad + s + q + Math.floor((numMiniere + numSegherie) / 2) + bonus; tipo = 'Produzione';
+    } else if (distrettoNome === "Piazza del Teatro") {
+        valore = bonus; tipo = 'Cultura';
+    } else if (distrettoNome === "Accampamento") {
+        valore = bonus; tipo = 'Produzione';
+    } else if (distrettoNome === "Luogo Santo") {
+        const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
+        const mn = celleAdiacenti.filter(c => c.caratteristiche.includes("Meraviglia Naturale")).length * 2;
+        const bo = celleAdiacenti.filter(c => c.caratteristiche.includes("Bosco") && !c.distretto_effettivo).length;
+        valore = m + mn + Math.floor(bo / 2) + bonus; tipo = 'Fede';
+    } else {
+        return null;
+    }
+    return { tipo, valore };
+}
+
 function updateTooltip(cella, mouseX, mouseY) {
     const tt = document.getElementById('tooltip');
     if (!tt) return;
@@ -740,9 +835,11 @@ function updateTooltip(cella, mouseX, mouseY) {
     if (distretto) {
         html += `<div class="tooltip__district">${distretto}</div>`;
 
-        // Se è centro cittadino o distretto, potremmo voler mostrare altro
         if (activeSolution && distretto !== "Centro Cittadino") {
-            html += `<div class="tooltip__features" style="margin-top: 5px; opacity: 0.8;">Contribuisce alle rese del layout #${CIV6_DATA.soluzioni.indexOf(activeSolution) + 1}</div>`;
+            const resa = calcolaResaDistretto(cella, distretto, activeSolution);
+            if (resa) {
+                html += `<div class="tooltip__yield">${resa.valore > 0 ? '+' : ''}${resa.valore} ${resa.tipo}</div>`;
+            }
         }
     }
 
@@ -838,33 +935,20 @@ function enhancedFileProcessing(text, fileName) {
     const fileStatusContainer = document.getElementById('fileStatusContainer');
     const fileStatusText = document.getElementById('fileStatusText');
 
-    // Show loading state
     fileStatusContainer.classList.add('file-loading');
-    fileStatusText.innerHTML = `Elaborazione:<br><b>${fileName}</b>`;
+    fileStatusText.innerHTML = `Elaborazione: <b>${fileName}</b>`;
 
-    // Simulate processing steps
+    // Process immediately without artificial delay
+    processRawLogText(text);
+
+    // Show success feedback
+    fileStatusContainer.classList.remove('file-loading');
+    fileStatusContainer.classList.add('file-success');
+    fileStatusText.innerHTML = `Caricato: <b>${fileName}</b>`;
+
     setTimeout(() => {
-        fileStatusText.innerHTML = `Validazione formato...`;
-    }, 500);
-
-    setTimeout(() => {
-        fileStatusText.innerHTML = `Parsing dati città...`;
-    }, 1000);
-
-    setTimeout(() => {
-        // Process the actual file
-        processRawLogText(text);
-
-        // Show success
-        fileStatusContainer.classList.remove('file-loading');
-        fileStatusContainer.classList.add('file-success');
-        fileStatusText.innerHTML = `Caricato:<br><b>${fileName}</b>`;
-
-        setTimeout(() => {
-            fileStatusContainer.classList.remove('file-success');
-        }, 3000);
-
-    }, 1500);
+        fileStatusContainer.classList.remove('file-success');
+    }, 3000);
 }
 
 // Notification System
@@ -947,56 +1031,4 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLoadExample) {
         btnLoadExample.addEventListener('click', loadExampleData);
     }
-
-    // Add event listener for manual tutorial button
-    const btnShowTutorial = document.getElementById('btnShowTutorial');
-    if (btnShowTutorial) {
-        btnShowTutorial.addEventListener('click', () => {
-            showTutorialStep(1);
-        });
-    }
 });
-
-// Enhanced drag and drop with better feedback
-function enhancedInitDragAndDrop() {
-    const dropZone = document.getElementById('fileStatusContainer');
-
-    dropZone.addEventListener('dragover', (e) => {
-        e.preventDefault();
-        dropZone.style.border = '2px dashed #58a6ff';
-        dropZone.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
-        dropZone.style.transform = 'scale(1.02)';
-    });
-
-    dropZone.addEventListener('dragleave', (e) => {
-        e.preventDefault();
-        dropZone.style.border = '2px dashed #444';
-        dropZone.style.backgroundColor = '';
-        dropZone.style.transform = 'scale(1)';
-    });
-
-    dropZone.addEventListener('drop', async (e) => {
-        e.preventDefault();
-        dropZone.style.border = '2px dashed #444';
-        dropZone.style.backgroundColor = '';
-        dropZone.style.transform = 'scale(1)';
-
-        if (e.dataTransfer.files.length) {
-            const file = e.dataTransfer.files[0];
-
-            // Validate file type
-            if (!file.name.endsWith('.log') && !file.name.endsWith('.txt')) {
-                showNotification('Per favore carica un file .log o .txt', 'error');
-                return;
-            }
-
-            enhancedFileProcessing(await file.text(), file.name);
-        }
-    });
-}
-
-// Expose tutorial functions to global scope for inline onclick handlers
-window.nextStep = nextStep;
-window.previousStep = previousStep;
-window.finishTutorial = finishTutorial;
-window.showTutorialStep = showTutorialStep;
