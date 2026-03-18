@@ -52,6 +52,7 @@ let optimizerWorker = null;
 // Rendi globale CIV6_DATA inizialmente vuota per non rompere roba se la mod non ha esportato nulla
 window.CIV6_DATA = window.CIV6_DATA || { celle: [], soluzioni: [] };
 window.extractedCityData = null; // Memorizza i dati del City Scanner
+window.extractedCityName = null; // Memorizza il nome della città
 
 let logFileHandle = null;
 let lastModifiedTime = 0;
@@ -63,6 +64,7 @@ window.onload = () => {
     initSetupUI();
     initDragAndDrop();
     initFilePicker();
+    initExportControls();
 
     // Centra la telecamera
     if (CIV6_DATA.celle.length > 0) {
@@ -79,49 +81,40 @@ window.onload = () => {
     draw();
 };
 
-// Funzione FilePicker
+// Funzione FilePicker semplificata - usa sempre input HTML tradizionale
 function initFilePicker() {
     const btnSelectLua = document.getElementById('btnSelectLua');
     if (btnSelectLua) {
-        btnSelectLua.addEventListener('click', async () => {
-            try {
-                // Opzioni opzionali, ma utili per suggerire il file
-                const pickerOpts = {
-                    types: [
-                        {
-                            description: 'Text Files',
-                            accept: {
-                                'text/plain': ['.log', '.txt'],
-                            },
-                        },
-                    ],
-                    excludeAcceptAllOption: false,
-                    multiple: false,
-                };
-
-                // Mostra il picker all'utente
-                [logFileHandle] = await window.showOpenFilePicker(pickerOpts);
-
-                // Aggiorna UI
-                const textEl = document.getElementById('fileStatusText');
-                if (textEl) {
-                    textEl.innerHTML = `File selezionato:<br><b>${logFileHandle.name}</b>`;
+        btnSelectLua.addEventListener('click', () => {
+            // Crea un input file nascosto
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.log,.txt,text/plain';
+            input.style.display = 'none';
+            
+            input.onchange = async (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    try {
+                        showNotification(`Caricamento ${file.name}...`, 'info');
+                        const text = await file.text();
+                        enhancedFileProcessing(text, file.name);
+                        showNotification(`File ${file.name} caricato con successo!`, 'success');
+                    } catch (error) {
+                        console.error('Errore nel caricamento file:', error);
+                        showNotification('Errore nel caricamento del file', 'error');
+                    }
                 }
-
-                // Leggi subito il file
-                await pollFileForChanges();
-
-                // Avvia il polling (ogni 2 secondi)
-                if (pollingIntervalId) clearInterval(pollingIntervalId);
-                pollingIntervalId = setInterval(pollFileForChanges, 2000);
-
-            } catch (err) {
-                // L'utente ha annullato la selezione o altro errore
-                if (err.name !== 'AbortError') {
-                    console.error("Errore durante la selezione del file:", err);
-                    alert("Impossibile accedere al file: " + err.message);
-                }
-            }
+            };
+            
+            // Aggiungi al body e simula click
+            document.body.appendChild(input);
+            input.click();
+            
+            // Rimuovi dopo un breve delay
+            setTimeout(() => {
+                document.body.removeChild(input);
+            }, 100);
         });
     }
 }
@@ -161,11 +154,29 @@ function processRawLogText(text) {
     if (extracted) {
         if (window.extractedCityData !== extracted) {
             window.extractedCityData = extracted;
-            document.getElementById('fileStatusText').innerHTML = `Dati Città: <b>Trovati</b><br><small>Ultimo agg: ${new Date().toLocaleTimeString()}</small>`;
+            const fileStatusText = document.getElementById('fileStatusText');
+            const cityHeader = document.getElementById('cityHeader');
+            const cityNameElement = document.getElementById('cityName');
+            
+            if (fileStatusText) {
+                const cityName = window.extractedCityName || 'Sconosciuta';
+                fileStatusText.innerHTML = `Città: <b>${cityName}</b><br><small>Dati trovati - ${new Date().toLocaleTimeString()}</small>`;
+            }
+            
+            // Mostra l'header della città
+            if (cityHeader && cityNameElement && window.extractedCityName) {
+                cityNameElement.textContent = window.extractedCityName;
+                cityHeader.style.display = 'block';
+            }
+            
             triggerMapUpdate();
         }
     } else {
-        document.getElementById('fileStatusText').innerHTML = `In attesa dei dati scan...<br><small>Esegui lo scanner in gioco.</small>`;
+        // Reset del testo quando non ci sono dati validi
+        const fileStatusText = document.getElementById('fileStatusText');
+        if (fileStatusText) {
+            fileStatusText.innerHTML = 'Trascina qui il file <b>Lua.log</b>';
+        }
     }
 }
 
@@ -235,29 +246,32 @@ function initDragAndDrop() {
         e.preventDefault();
         dropZone.style.border = '2px dashed #58a6ff';
         dropZone.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+        dropZone.style.transform = 'scale(1.02)';
     });
 
     dropZone.addEventListener('dragleave', (e) => {
         e.preventDefault();
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
+        dropZone.style.transform = 'scale(1)';
     });
 
     dropZone.addEventListener('drop', async (e) => {
         e.preventDefault();
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
+        dropZone.style.transform = 'scale(1)';
+        
         if (e.dataTransfer.files.length) {
             const file = e.dataTransfer.files[0];
-
-            // Check if multiple drag handles exist - optional depending on need
-            const textEl = document.getElementById('fileStatusText');
-            if (textEl) {
-                textEl.innerHTML = `File caricato:<br><b>${file.name}</b>`;
+            
+            // Validate file type
+            if (!file.name.endsWith('.log') && !file.name.endsWith('.txt')) {
+                showNotification('Per favore carica un file .log o .txt', 'error');
+                return;
             }
-
-            const text = await file.text();
-            processRawLogText(text);
+            
+            enhancedFileProcessing(await file.text(), file.name);
         }
     });
 }
@@ -265,7 +279,22 @@ function initDragAndDrop() {
 function estraiDaLua(text) {
     const lines = text.split('\n');
     const dati_estratti = [];
+    let cityName = null;
     let trovato_fine = false;
+    
+    // Prima estrai il nome della città
+    for (let line of lines) {
+        if (line.includes('CityScanner: City:')) {
+            const match = line.match(/CityScanner: City:\s*(.+)/);
+            if (match) {
+                cityName = match[1].trim();
+                // Converti il nome della città da formato LOC_ a un formato più leggibile
+                cityName = cityName.replace(/^LOC_CITY_NAME_/, '').replace(/_STK$/, '');
+            }
+        }
+    }
+    
+    // Poi estrai i dati delle celle
     for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
         if (line.includes('--- END CITY DATA SCAN ---')) {
@@ -281,6 +310,10 @@ function estraiDaLua(text) {
             }
         }
     }
+    
+    // Memorizza il nome della città a livello globale
+    window.extractedCityName = cityName;
+    
     return dati_estratti.length ? dati_estratti.reverse().join('\n') : null;
 }
 
@@ -564,6 +597,12 @@ function buildSidebar() {
         `;
         list.appendChild(card);
     });
+    
+    // Show export controls when there are solutions
+    const exportControls = document.getElementById('exportControls');
+    if (exportControls && CIV6_DATA.soluzioni.length > 0) {
+        exportControls.style.display = 'flex';
+    }
 }
 
 function selectSolution(id) {
@@ -645,3 +684,253 @@ function updateTooltip(cella, mouseX, mouseY) {
     tt.innerHTML = html;
     tt.classList.add('visible');
 }
+
+// Export Controls
+function initExportControls() {
+    const btnExportJSON = document.getElementById('btnExportJSON');
+    const btnExportPNG = document.getElementById('btnExportPNG');
+    const btnCopyLayout = document.getElementById('btnCopyLayout');
+    
+    if (btnExportJSON) {
+        btnExportJSON.addEventListener('click', exportToJSON);
+    }
+    
+    if (btnExportPNG) {
+        btnExportPNG.addEventListener('click', exportToPNG);
+    }
+    
+    if (btnCopyLayout) {
+        btnCopyLayout.addEventListener('click', copyLayoutToClipboard);
+    }
+}
+
+function exportToJSON() {
+    const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
+    if (!activeSolution) {
+        showNotification('Nessuna soluzione selezionata', 'error');
+        return;
+    }
+    
+    const exportData = {
+        timestamp: new Date().toISOString(),
+        city: CIV6_DATA.celle,
+        solution: activeSolution,
+        metadata: {
+            totalCells: CIV6_DATA.celle.length,
+            districts: Object.keys(activeSolution.layout).length,
+            totalYields: Object.values(activeSolution.rese).reduce((a, b) => a + b, 0)
+        }
+    };
+    
+    const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `civ6_layout_${Date.now()}.json`;
+    a.click();
+    URL.revokeObjectURL(url);
+    
+    showNotification('Layout esportato come JSON', 'success');
+}
+
+function exportToPNG() {
+    const canvas = document.getElementById('hexCanvas');
+    if (!canvas) return;
+    
+    canvas.toBlob(blob => {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `civ6_layout_${Date.now()}.png`;
+        a.click();
+        URL.revokeObjectURL(url);
+        
+        showNotification('Mappa esportata come PNG', 'success');
+    });
+}
+
+function copyLayoutToClipboard() {
+    const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
+    if (!activeSolution) {
+        showNotification('Nessuna soluzione selezionata', 'error');
+        return;
+    }
+    
+    const layoutText = Object.entries(activeSolution.layout)
+        .map(([district, pos]) => `${district}: (${pos.q}, ${pos.r})`)
+        .join('\n');
+    
+    navigator.clipboard.writeText(layoutText).then(() => {
+        showNotification('Layout copiato negli appunti', 'success');
+    }).catch(() => {
+        showNotification('Errore durante la copia', 'error');
+    });
+}
+
+// Enhanced File Loading Feedback
+function enhancedFileProcessing(text, fileName) {
+    const fileStatusContainer = document.getElementById('fileStatusContainer');
+    const fileStatusText = document.getElementById('fileStatusText');
+    
+    // Show loading state
+    fileStatusContainer.classList.add('file-loading');
+    fileStatusText.innerHTML = `Elaborazione:<br><b>${fileName}</b>`;
+    
+    // Simulate processing steps
+    setTimeout(() => {
+        fileStatusText.innerHTML = `Validazione formato...`;
+    }, 500);
+    
+    setTimeout(() => {
+        fileStatusText.innerHTML = `Parsing dati città...`;
+    }, 1000);
+    
+    setTimeout(() => {
+        // Process the actual file
+        processRawLogText(text);
+        
+        // Show success
+        fileStatusContainer.classList.remove('file-loading');
+        fileStatusContainer.classList.add('file-success');
+        fileStatusText.innerHTML = `Caricato:<br><b>${fileName}</b>`;
+        
+        setTimeout(() => {
+            fileStatusContainer.classList.remove('file-success');
+        }, 3000);
+        
+    }, 1500);
+}
+
+// Notification System
+function showNotification(message, type = 'info') {
+    // Create notification element
+    const notification = document.createElement('div');
+    notification.className = `notification notification-${type}`;
+    notification.textContent = message;
+    
+    // Style the notification
+    Object.assign(notification.style, {
+        position: 'fixed',
+        bottom: '20px',
+        right: '20px',
+        background: type === 'success' ? '#2ea043' : type === 'error' ? '#f85149' : '#58a6ff',
+        color: 'white',
+        padding: '12px 20px',
+        borderRadius: '8px',
+        fontSize: '14px',
+        fontWeight: '600',
+        boxShadow: '0 4px 12px rgba(0,0,0,0.3)',
+        zIndex: '10000',
+        opacity: '0',
+        transform: 'translateY(20px)',
+        transition: 'all 0.3s ease'
+    });
+    
+    document.body.appendChild(notification);
+    
+    // Animate in
+    setTimeout(() => {
+        notification.style.opacity = '1';
+        notification.style.transform = 'translateY(0)';
+    }, 100);
+    
+    // Remove after 3 seconds
+    setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateY(20px)';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+// Load Example Data Function
+function loadExampleData() {
+    const exampleData = `--- START CITY DATA SCAN ---
+CityScanner: City: LOC_CITY_NAME_ROME_STK
+CityScanner: {q: 0, r: 0, s: 0, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: 0, s: -1, t: ["TERRAIN_GRASS_HILLS"], f: ["FOREST"], res: "IRON", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: 1, s: -1, t: ["TERRAIN_PLAINS"], f: "NONE", res: "WHEAT", riv: true, rivEdges: 1}
+CityScanner: {q: -1, r: 1, s: 0, t: ["TERRAIN_PLAINS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -1, r: 0, s: 1, t: ["TERRAIN_GRASS"], f: ["FOREST"], res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: -1, s: 1, t: ["TERRAIN_COAST"], f: "NONE", res: "FISH", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: -1, s: 0, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 2, r: 0, s: -2, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: 1, s: -2, t: ["TERRAIN_PLAINS_HILLS"], f: "NONE", res: "STONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: 2, s: -2, t: ["TERRAIN_PLAINS"], f: ["FOREST"], res: "NONE", riv: true, rivEdges: 2}
+CityScanner: {q: -1, r: 2, s: -1, t: ["TERRAIN_GRASS"], f: "NONE", res: "CATTLE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 2, s: 0, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 1, s: 1, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 0, s: 2, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -1, r: -1, s: 2, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: -2, s: 2, t: ["TERRAIN_COAST"], f: "NONE", res: "CRAB", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: -2, s: 1, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 2, r: -1, s: -1, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+--- END CITY DATA SCAN ---`;
+
+    // Set city name for example
+    window.extractedCityName = "Roma (Esempio)";
+    
+    // Process example data
+    enhancedFileProcessing(exampleData, "Esempio");
+}
+
+// Add event listener for example button
+document.addEventListener('DOMContentLoaded', () => {
+    const btnLoadExample = document.getElementById('btnLoadExample');
+    if (btnLoadExample) {
+        btnLoadExample.addEventListener('click', loadExampleData);
+    }
+    
+    // Add event listener for manual tutorial button
+    const btnShowTutorial = document.getElementById('btnShowTutorial');
+    if (btnShowTutorial) {
+        btnShowTutorial.addEventListener('click', () => {
+            showTutorialStep(1);
+        });
+    }
+});
+
+// Enhanced drag and drop with better feedback
+function enhancedInitDragAndDrop() {
+    const dropZone = document.getElementById('fileStatusContainer');
+
+    dropZone.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        dropZone.style.border = '2px dashed #58a6ff';
+        dropZone.style.backgroundColor = 'rgba(88, 166, 255, 0.1)';
+        dropZone.style.transform = 'scale(1.02)';
+    });
+
+    dropZone.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        dropZone.style.border = '2px dashed #444';
+        dropZone.style.backgroundColor = '';
+        dropZone.style.transform = 'scale(1)';
+    });
+
+    dropZone.addEventListener('drop', async (e) => {
+        e.preventDefault();
+        dropZone.style.border = '2px dashed #444';
+        dropZone.style.backgroundColor = '';
+        dropZone.style.transform = 'scale(1)';
+        
+        if (e.dataTransfer.files.length) {
+            const file = e.dataTransfer.files[0];
+            
+            // Validate file type
+            if (!file.name.endsWith('.log') && !file.name.endsWith('.txt')) {
+                showNotification('Per favore carica un file .log o .txt', 'error');
+                return;
+            }
+            
+            enhancedFileProcessing(await file.text(), file.name);
+        }
+    });
+}
+
+// Expose tutorial functions to global scope for inline onclick handlers
+window.nextStep = nextStep;
+window.previousStep = previousStep;
+window.finishTutorial = finishTutorial;
+window.showTutorialStep = showTutorialStep;

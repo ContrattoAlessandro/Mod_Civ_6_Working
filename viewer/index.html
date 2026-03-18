@@ -21,9 +21,11 @@
             <div class="controls setup-section">
                 <label>Dati City Scanner:</label>
                 <div id="fileStatusContainer" class="dropzone">
-                    <p id="fileStatusText">Trascina qui il file <b>Lua.log</b><br>oppure</p>
-                    <button id="btnSelectLua" class="btn-secondary">Seleziona Lua.log</button>
+                    <p id="fileStatusText">Trascina qui il file <b>Lua.log</b></p>
                 </div>
+                
+                <button class="btn-secondary" id="btnSelectLua"> Seleziona File</button>
+                <button class="example-file-btn" id="btnLoadExample"> Carica Esempio</button>
 
                 <div class="districts-selector" id="districtsSelector">
                     <!-- Populated by JS -->
@@ -54,6 +56,19 @@
                 <div class="solutions-list" id="solutionsList">
                     <!-- Cards iniettate da JS -->
                 </div>
+                
+                <!-- Export Controls -->
+                <div class="export-controls" id="exportControls" style="display: none;">
+                    <button class="export-btn" id="btnExportJSON">
+                        📄 Esporta JSON
+                    </button>
+                    <button class="export-btn" id="btnExportPNG">
+                        🖼️ Esporta PNG
+                    </button>
+                    <button class="export-btn" id="btnCopyLayout">
+                        📋 Copia Layout
+                    </button>
+                </div>
             </div>
 
             <div class="sidebar-footer">
@@ -63,6 +78,9 @@
 
         <!-- Area Principale (Mappa) -->
         <main class="map-container" id="mapContainer">
+            <div class="city-header" id="cityHeader" style="display: none;">
+                <div class="city-name" id="cityName">--</div>
+            </div>
             <canvas id="hexCanvas"></canvas>
 
             <!-- Tooltip per info su hover -->
@@ -187,17 +205,27 @@ class MappaCitta {
                             const strategiche = ["COAL", "IRON", "NITER", "ALUMINUM", "OIL", "URANIUM"];
                             if (strategiche.some(s => res.includes(s))) cella.caratteristiche.add("Risorsa Strategica");
 
-                            const lusso = ["JADE", "SILK", "TEA", "WINE", "DIAMONDS", "COFFEE", "IVORY", "MARBLE", "SALT", "SPICES", "SUGAR", "COTTON", "DYES", "INCENSE", "MERCURY", "TIRTLE", "WHALE", "PEARLS", "COCOA"];
+                            const lusso = ["JADE", "SILK", "TEA", "WINE", "DIAMONDS", "COFFEE", "IVORY", "MARBLE", "SALT", "SPICES", "SUGAR", "COTTON", "DYES", "INCENSE", "MERCURY", "TURTLE", "WHALE", "PEARLS", "COCOA"];
                             if (lusso.some(l => res.includes(l))) cella.caratteristiche.add("Risorsa Lusso");
 
                             const potenzialeCava = ["STONE", "MARBLE", "GYPSUM"];
                             if (potenzialeCava.some(q => res.includes(q))) cella.caratteristiche.add("Potenziale Cava");
+                            
+                            // Implementazione Risorsa Cava effettiva
+                            if (potenzialeCava.some(q => res.includes(q))) {
+                                cella.caratteristiche.add("Risorsa Cava");
+                            }
 
                             const potenzialeMiniera = ["IRON", "COAL", "NITER", "ALUMINUM", "COPPER", "URANIUM"];
                             if (potenzialeMiniera.some(m => res.includes(m))) cella.caratteristiche.add("Potenziale Miniera");
 
                             const risorsaBonus = ["WHEAT", "MAIZE", "RICE", "DEER", "SHEEP", "CATTLE"];
                             if (risorsaBonus.some(b => res.includes(b))) cella.caratteristiche.add("Risorsa Bonus");
+
+                            const risorseMarine = ["FISH", "CRAB", "PEARLS", "WHALE", "TURTLE"];
+                            if (risorseMarine.some(m => res.includes(m))) {
+                                cella.caratteristiche.add("Risorsa Marina");
+                            }
                         }
 
                         if (data.t && data.t.includes("COAST")) {
@@ -210,7 +238,7 @@ class MappaCitta {
                 }
             }
         }
-        console.log(`Mappa importata con successo (${celle_importate} celle modificate).`);
+        // Mappa importata con successo
         if (celle_importate === 0) {
              throw new Error("Nessuna cella valida trovata nei dati forniti. Controlla il formato.");
         }
@@ -587,6 +615,7 @@ self.onmessage = function(e) {
     <script src="data.js"></script>
     <!-- Logica del viewer -->
     <script src="script.js"></script>
+    </div>
 </body>
 
 </html>
