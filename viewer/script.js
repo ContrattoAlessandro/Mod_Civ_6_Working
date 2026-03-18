@@ -75,7 +75,7 @@ window.onload = () => {
     // Seleziona la prima soluzione di default
     if (CIV6_DATA.soluzioni.length > 0) {
         selectSolution(0);
-        document.getElementById('resultsSection').style.display = 'block';
+        document.getElementById('resultsSection').classList.add('visible');
     }
 
     draw();
@@ -166,7 +166,7 @@ function processRawLogText(text) {
             // Mostra l'header della città
             if (cityHeader && cityNameElement && window.extractedCityName) {
                 cityNameElement.textContent = window.extractedCityName;
-                cityHeader.style.display = 'block';
+                cityHeader.classList.add('visible');
             }
             
             triggerMapUpdate();
@@ -228,7 +228,7 @@ function triggerMapUpdate() {
 
         if (nuoveCelle.length > 0) {
             window.CIV6_DATA = { celle: nuoveCelle, soluzioni: [] };
-            document.getElementById('resultsSection').style.display = 'none'; // Nascondi vecchi risultati
+            document.getElementById('resultsSection').classList.remove('visible'); // Nascondi vecchi risultati
             cameraX = window.innerWidth / 2;
             cameraY = window.innerHeight / 2;
             draw();
@@ -348,8 +348,8 @@ function startOptimization() {
 
     // UI Updates
     document.getElementById('btnOptimize').disabled = true;
-    document.getElementById('progressContainer').style.display = 'block';
-    document.getElementById('resultsSection').style.display = 'none';
+    document.getElementById('progressContainer').classList.add('visible');
+    document.getElementById('resultsSection').classList.remove('visible');
 
     if (optimizerWorker) {
         optimizerWorker.terminate();
@@ -370,8 +370,8 @@ function startOptimization() {
                 // alert("Debug: Ricevuto JSON con " + CIV6_DATA.soluzioni.length + " layout");
 
                 document.getElementById('btnOptimize').disabled = false;
-                document.getElementById('progressContainer').style.display = 'none';
-                document.getElementById('resultsSection').style.display = 'block';
+                document.getElementById('progressContainer').classList.remove('visible');
+                document.getElementById('resultsSection').classList.add('visible');
 
                 // Re-inizializza la visualizzazione
                 cameraX = window.innerWidth / 2;
@@ -389,7 +389,7 @@ function startOptimization() {
         } else if (msg.type === 'ERROR') {
             alert("Errore durante l'ottimizzazione: " + msg.message);
             document.getElementById('btnOptimize').disabled = false;
-            document.getElementById('progressContainer').style.display = 'none';
+            document.getElementById('progressContainer').classList.remove('visible');
         }
     };
 
@@ -588,11 +588,11 @@ function buildSidebar() {
                 <span class="solution-id">Distretti: ${Object.keys(sol.layout).length}</span>
             </div>
             <div class="yields-grid">
-                <div class="yield-item"><span class="yield-icon" style="background:#58a6ff"></span> ${r.Scienza}</div>
-                <div class="yield-item"><span class="yield-icon" style="background:#d29922; border-radius:2px"></span> ${r.Produzione}</div>
-                <div class="yield-item"><span class="yield-icon" style="background:#e3b341"></span> ${r.Oro}</div>
-                <div class="yield-item"><span class="yield-icon" style="background:#db61a2"></span> ${r.Cultura}</div>
-                <div class="yield-item"><span class="yield-icon" style="background:#e6edf3"></span> ${r.Fede}</div>
+                <div class="yield-item"><span class="yield-icon" style="background:#58a6ff"></span><span class="yield-value">${r.Scienza}</span></div>
+                <div class="yield-item"><span class="yield-icon" style="background:#d29922; border-radius:2px"></span><span class="yield-value">${r.Produzione}</span></div>
+                <div class="yield-item"><span class="yield-icon" style="background:#e3b341"></span><span class="yield-value">${r.Oro}</span></div>
+                <div class="yield-item"><span class="yield-icon" style="background:#db61a2"></span><span class="yield-value">${r.Cultura}</span></div>
+                <div class="yield-item"><span class="yield-icon" style="background:#e6edf3"></span><span class="yield-value">${r.Fede}</span></div>
             </div>
         `;
         list.appendChild(card);
@@ -637,10 +637,8 @@ function handleHover(mouseX, mouseY) {
             updateTooltip(cella, mouseX, mouseY);
             draw();
         } else {
-            // Update tooltip position slightly
-            const tt = document.getElementById('tooltip');
-            tt.style.left = mouseX + 'px';
-            tt.style.top = mouseY + 'px';
+            // Update tooltip position to follow cursor closely
+            positionTooltip(mouseX, mouseY);
         }
     } else if (hoveredHex) {
         hoveredHex = null;
@@ -649,10 +647,36 @@ function handleHover(mouseX, mouseY) {
     }
 }
 
+function positionTooltip(mouseX, mouseY) {
+    const tt = document.getElementById('tooltip');
+    const rect = tt.getBoundingClientRect();
+    const viewportWidth = window.innerWidth;
+    const viewportHeight = window.innerHeight;
+    
+    // Position tooltip near cursor with offset
+    let left = mouseX + 12;
+    let top = mouseY + 12;
+    
+    // Prevent tooltip from going off-screen right
+    if (left + rect.width > viewportWidth - 20) {
+        left = mouseX - rect.width - 12;
+    }
+    
+    // Prevent tooltip from going off-screen bottom
+    if (top + rect.height > viewportHeight - 20) {
+        top = mouseY - rect.height - 12;
+    }
+    
+    // Ensure minimum position
+    left = Math.max(10, left);
+    top = Math.max(10, top);
+    
+    tt.style.left = left + 'px';
+    tt.style.top = top + 'px';
+}
+
 function updateTooltip(cella, mouseX, mouseY) {
     const tt = document.getElementById('tooltip');
-    tt.style.left = mouseX + 'px';
-    tt.style.top = mouseY + 'px';
 
     let html = `
         <div class="tt-title">Coordinata: (${cella.q}, ${cella.r}, ${cella.s})</div>
@@ -683,6 +707,9 @@ function updateTooltip(cella, mouseX, mouseY) {
 
     tt.innerHTML = html;
     tt.classList.add('visible');
+    
+    // Position tooltip after content is set
+    positionTooltip(mouseX, mouseY);
 }
 
 // Export Controls
