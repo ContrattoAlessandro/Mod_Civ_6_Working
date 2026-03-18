@@ -289,11 +289,11 @@ class MappaCitta {
 
         for (let l of linee) {
             l = l.trim();
-            if (l.startsWith("{")) {
+            if (l.startsWith("{") || l.startsWith("'") || l.startsWith('"')) {
                 try {
                     // Pre-processing to make Python/Lua-like object a valid JSON string
-                    
-                    let jsonStr = l.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
+                    // Converti apici singoli in doppi apici per supportare formato Python
+                    let jsonStr = l.replace(/'/g, '"').replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
                     const data = (new Function('return ' + jsonStr))();
 
                     if (data.q === undefined || data.r === undefined) continue;
@@ -310,20 +310,25 @@ class MappaCitta {
                             cella.distretto = "Centro Cittadino";
                         }
 
-                        if (data.t && data.t.includes("MOUNTAIN")) cella.caratteristiche.add("Montagna");
-                        if (data.t && data.t.includes("HILL")) cella.caratteristiche.add("Collina");
+                        // Gestisci t come stringa o array
+                        const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
+                        if (tStr.includes("MOUNTAIN")) cella.caratteristiche.add("Montagna");
+                        if (tStr.includes("HILL")) cella.caratteristiche.add("Collina");
                         if (data.riv) cella.caratteristiche.add("Fiume");
 
                         const f = data.f || "NONE";
-                        if (f.includes("JUNGLE")) cella.caratteristiche.add("Foresta Pluviale");
-                        if (f.includes("FOREST")) cella.caratteristiche.add("Bosco");
-                        if (f.includes("REEF")) cella.caratteristiche.add("Barriera Corallina");
-                        if (f.includes("GEOTHERMAL")) cella.caratteristiche.add("Fessura Geotermale");
-                        if (f.includes("FLOODPLAINS")) cella.caratteristiche.add("Pianura Alluvionale");
-                        if (f.includes("OASIS")) cella.caratteristiche.add("Oasi");
-                        if (f.includes("LAKE") || (data.t && data.t.includes("LAKE"))) cella.caratteristiche.add("Lago");
+                        // Gestisci se f è un array o una stringa
+                        const featureStr = Array.isArray(f) ? f[0] : f;
+                        
+                        if (featureStr && featureStr.includes("JUNGLE")) cella.caratteristiche.add("Foresta Pluviale");
+                        if (featureStr && featureStr.includes("FOREST")) cella.caratteristiche.add("Bosco");
+                        if (featureStr && featureStr.includes("REEF")) cella.caratteristiche.add("Barriera Corallina");
+                        if (featureStr && featureStr.includes("GEOTHERMAL")) cella.caratteristiche.add("Fessura Geotermale");
+                        if (featureStr && featureStr.includes("FLOODPLAINS")) cella.caratteristiche.add("Pianura Alluvionale");
+                        if (featureStr && featureStr.includes("OASIS")) cella.caratteristiche.add("Oasi");
+                        if ((featureStr && featureStr.includes("LAKE")) || tStr.includes("LAKE")) cella.caratteristiche.add("Lago");
 
-                        if (f.startsWith("FEATURE_") && !["JUNGLE", "FOREST", "REEF", "GEOTHERMAL", "OASIS", "FLOODPLAINS", "ICE", "MARSH", "VOLCANO"].some(x => f.includes(x))) {
+                        if (featureStr && featureStr.startsWith("FEATURE_") && !["JUNGLE", "FOREST", "REEF", "GEOTHERMAL", "OASIS", "FLOODPLAINS", "ICE", "MARSH", "VOLCANO"].some(x => featureStr.includes(x))) {
                             cella.caratteristiche.add("Meraviglia Naturale");
                         }
 
@@ -355,7 +360,7 @@ class MappaCitta {
                             }
                         }
 
-                        if (data.t && data.t.includes("COAST")) {
+                        if (tStr.includes("COAST")) {
                             cella.caratteristiche.add("Costa");
                         }
                         celle_importate++;

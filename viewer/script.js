@@ -91,7 +91,7 @@ function initFilePicker() {
             input.type = 'file';
             input.accept = '.log,.txt,text/plain';
             input.style.display = 'none';
-            
+
             input.onchange = async (e) => {
                 const file = e.target.files[0];
                 if (file) {
@@ -106,11 +106,11 @@ function initFilePicker() {
                     }
                 }
             };
-            
+
             // Aggiungi al body e simula click
             document.body.appendChild(input);
             input.click();
-            
+
             // Rimuovi dopo un breve delay
             setTimeout(() => {
                 document.body.removeChild(input);
@@ -157,18 +157,18 @@ function processRawLogText(text) {
             const fileStatusText = document.getElementById('fileStatusText');
             const cityHeader = document.getElementById('cityHeader');
             const cityNameElement = document.getElementById('cityName');
-            
+
             if (fileStatusText) {
                 const cityName = window.extractedCityName || 'Sconosciuta';
                 fileStatusText.innerHTML = `Città: <b>${cityName}</b><br><small>Dati trovati - ${new Date().toLocaleTimeString()}</small>`;
             }
-            
+
             // Mostra l'header della città
             if (cityHeader && cityNameElement && window.extractedCityName) {
                 cityNameElement.textContent = window.extractedCityName;
                 cityHeader.classList.add('visible');
             }
-            
+
             triggerMapUpdate();
         }
     } else {
@@ -192,8 +192,8 @@ function triggerMapUpdate() {
 
         for (let l of linee) {
             l = l.trim();
-            if (l.startsWith("{")) {
-                let jsonStr = l.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
+            if (l.startsWith("{") || l.startsWith('"') || l.startsWith("'")) {
+                let jsonStr = l.replace(/'/g, '"').replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
                 const data = (new Function('return ' + jsonStr))();
                 if (data.q === undefined || data.r === undefined) continue;
 
@@ -205,15 +205,16 @@ function triggerMapUpdate() {
                 };
 
                 if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
-                if (data.t && data.t.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
-                if (data.t && data.t.includes("HILL")) c.caratteristiche.push("Collina");
-                if (data.t && data.t.includes("COAST")) c.caratteristiche.push("Costa");
+                const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
+                if (tStr.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
+                if (tStr.includes("HILL")) c.caratteristiche.push("Collina");
+                if (tStr.includes("COAST")) c.caratteristiche.push("Costa");
                 if (data.riv) c.caratteristiche.push("Fiume");
 
                 const f = data.f || "NONE";
                 if (f.includes("JUNGLE")) c.caratteristiche.push("Foresta Pluviale");
                 if (f.includes("FOREST")) c.caratteristiche.push("Bosco");
-                if (f.includes("LAKE") || (data.t && data.t.includes("LAKE"))) c.caratteristiche.push("Lago");
+                if (f.includes("LAKE") || tStr.includes("LAKE")) c.caratteristiche.push("Lago");
 
                 const res = data.res || "NONE";
                 if (res !== "NONE") {
@@ -261,19 +262,35 @@ function initDragAndDrop() {
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
         dropZone.style.transform = 'scale(1)';
-        
+
         if (e.dataTransfer.files.length) {
             const file = e.dataTransfer.files[0];
-            
+
             // Validate file type
             if (!file.name.endsWith('.log') && !file.name.endsWith('.txt')) {
                 showNotification('Per favore carica un file .log o .txt', 'error');
                 return;
             }
-            
+
             enhancedFileProcessing(await file.text(), file.name);
         }
     });
+}
+
+// Converte una stringa dict Python/Lua in formato JS valido
+function convertPythonDictToJS(str) {
+    // Sostituisci le chiavi con apici singoli: 'key' -> "key"
+    // E i valori stringa con apici singoli: 'value' -> "value"
+    let result = str;
+    
+    // Converti True/False Python in true/false JS
+    result = result.replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
+    
+    // Sostituisci tutti gli apici singoli con doppi apici
+    // Ma attenzione a non rompere le stringhe che contengono apici
+    result = result.replace(/'/g, '"');
+    
+    return result;
 }
 
 function estraiDaLua(text) {
@@ -281,7 +298,7 @@ function estraiDaLua(text) {
     const dati_estratti = [];
     let cityName = null;
     let trovato_fine = false;
-    
+
     // Prima estrai il nome della città
     for (let line of lines) {
         if (line.includes('CityScanner: City:')) {
@@ -293,7 +310,7 @@ function estraiDaLua(text) {
             }
         }
     }
-    
+
     // Poi estrai i dati delle celle
     for (let i = lines.length - 1; i >= 0; i--) {
         const line = lines[i];
@@ -306,14 +323,18 @@ function estraiDaLua(text) {
             if (line.includes('{') && line.includes('}')) {
                 const parti = line.split("CityScanner: ");
                 let riga_dati = (parti.length > 1) ? parti[1].trim() : line.trim();
-                if (riga_dati.startsWith("{")) dati_estratti.push(riga_dati);
+                if (riga_dati.startsWith("{") || riga_dati.startsWith("'") || riga_dati.startsWith("\"")) {
+                    // Converti da formato Python (apici singoli) a formato JS
+                    riga_dati = convertPythonDictToJS(riga_dati);
+                    dati_estratti.push(riga_dati);
+                }
             }
         }
     }
-    
+
     // Memorizza il nome della città a livello globale
     window.extractedCityName = cityName;
-    
+
     return dati_estratti.length ? dati_estratti.reverse().join('\n') : null;
 }
 
@@ -544,19 +565,27 @@ function draw() {
         }
 
         if (renderDistretto) {
-            drawHex(pos.x, pos.y, HEX_SIZE - 8, 'rgba(0,0,0,0.6)', COLORS.DISTRICTS[renderDistretto] || '#fff', 2);
+            // Background nero più opaco per migliore contrasto
+            drawHex(pos.x, pos.y, HEX_SIZE - 10, 'rgba(0,0,0,0.85)', COLORS.DISTRICTS[renderDistretto] || '#fff', 2);
 
-            // Text inside hex
-            ctx.fillStyle = '#fff';
-            ctx.font = '10px Inter';
+            // Nome Distretto
+            ctx.fillStyle = '#ffffff';
+            ctx.font = 'bold 10px Inter';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
 
-            // Abbreviazioni
+            ctx.shadowColor = 'rgba(0,0,0,1)';
+            ctx.shadowBlur = 4;
+
             let txt = renderDistretto.substring(0, 3).toUpperCase();
             if (renderDistretto === "Centro Cittadino") txt = "CC";
             if (renderDistretto === "Hub Commerciale") txt = "HUB";
-            ctx.fillText(txt, pos.x, pos.y);
+            ctx.fillText(txt, pos.x, pos.y - 4);
+
+            // Se c'è una soluzione attiva, possiamo mostrare il bonus (non implementato individualmente nel worker ma nel totale)
+            // Per ora mostriamo l'abbreviazione del distretto un po' più in alto e lasciamo spazio per altro.
+
+            ctx.shadowBlur = 0;
         }
 
         // Overlay Fiume (Semplificato: testo blu)
@@ -579,25 +608,38 @@ function buildSidebar() {
     CIV6_DATA.soluzioni.forEach((sol, index) => {
         const card = document.createElement('div');
         card.className = `solution-card ${sol.id === selectedSolutionId ? 'active' : ''}`;
+        card.setAttribute('role', 'option');
+        card.setAttribute('aria-selected', sol.id === selectedSolutionId);
         card.onclick = () => selectSolution(sol.id);
 
         const r = sol.rese;
+
+        // Costruzione esplicita della griglia per prevenire problemi di rendering
+        let yieldsHtml = `
+            <div class="yields-grid">
+                <div class="yield-item"><span class="yield-icon yield-icon--science"></span><span class="yield-value">${r.Scienza || 0}</span></div>
+                <div class="yield-item"><span class="yield-icon yield-icon--production"></span><span class="yield-value">${r.Produzione || 0}</span></div>
+                <div class="yield-item"><span class="yield-icon yield-icon--gold"></span><span class="yield-value">${r.Oro || 0}</span></div>
+                <div class="yield-item"><span class="yield-icon yield-icon--culture"></span><span class="yield-value">${r.Cultura || 0}</span></div>
+                <div class="yield-item"><span class="yield-icon yield-icon--faith"></span><span class="yield-value">${r.Fede || 0}</span></div>
+            </div>
+        `;
+
         card.innerHTML = `
-            <div class="solution-title">
-                <span>Layout #${index + 1}</span>
+            <div class="solution-header">
+                <span class="solution-title">Layout #${index + 1}</span>
                 <span class="solution-id">Distretti: ${Object.keys(sol.layout).length}</span>
             </div>
-            <div class="yields-grid">
-                <div class="yield-item"><span class="yield-icon" style="background:#58a6ff"></span><span class="yield-value">${r.Scienza}</span></div>
-                <div class="yield-item"><span class="yield-icon" style="background:#d29922; border-radius:2px"></span><span class="yield-value">${r.Produzione}</span></div>
-                <div class="yield-item"><span class="yield-icon" style="background:#e3b341"></span><span class="yield-value">${r.Oro}</span></div>
-                <div class="yield-item"><span class="yield-icon" style="background:#db61a2"></span><span class="yield-value">${r.Cultura}</span></div>
-                <div class="yield-item"><span class="yield-icon" style="background:#e6edf3"></span><span class="yield-value">${r.Fede}</span></div>
-            </div>
+            ${yieldsHtml}
         `;
         list.appendChild(card);
     });
-    
+
+    // Aggiorna altezza massima solutions-list in base al numero di soluzioni
+    if (CIV6_DATA.soluzioni.length > 0) {
+        list.style.maxHeight = 'calc(100vh - 500px)';
+    }
+
     // Show export controls when there are solutions
     const exportControls = document.getElementById('exportControls');
     if (exportControls && CIV6_DATA.soluzioni.length > 0) {
@@ -649,66 +691,63 @@ function handleHover(mouseX, mouseY) {
 
 function positionTooltip(mouseX, mouseY) {
     const tt = document.getElementById('tooltip');
-    const rect = tt.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-    
-    // Position tooltip near cursor with offset
-    let left = mouseX + 12;
-    let top = mouseY + 12;
-    
-    // Prevent tooltip from going off-screen right
-    if (left + rect.width > viewportWidth - 20) {
-        left = mouseX - rect.width - 12;
+    if (!tt) return;
+
+    const container = canvas.parentElement;
+    const rect = container.getBoundingClientRect();
+    const ttRect = tt.getBoundingClientRect();
+
+    // Position relative to map-container
+    let x = mouseX - rect.left + 15;
+    let y = mouseY - rect.top + 15;
+
+    // Prevent tooltip from going off-screen right/bottom of its container
+    if (x + ttRect.width > rect.width - 20) {
+        x = mouseX - rect.left - ttRect.width - 15;
     }
-    
-    // Prevent tooltip from going off-screen bottom
-    if (top + rect.height > viewportHeight - 20) {
-        top = mouseY - rect.height - 12;
+    if (y + ttRect.height > rect.height - 20) {
+        y = mouseY - rect.top - ttRect.height - 15;
     }
-    
-    // Ensure minimum position
-    left = Math.max(10, left);
-    top = Math.max(10, top);
-    
-    tt.style.left = left + 'px';
-    tt.style.top = top + 'px';
+
+    tt.style.left = x + 'px';
+    tt.style.top = y + 'px';
 }
 
 function updateTooltip(cella, mouseX, mouseY) {
     const tt = document.getElementById('tooltip');
+    if (!tt) return;
 
-    let html = `
-        <div class="tt-title">Coordinata: (${cella.q}, ${cella.r}, ${cella.s})</div>
-    `;
+    let html = `<div class="tooltip__title">Coordinate: (${cella.q}, ${cella.r})</div>`;
 
     if (cella.caratteristiche.length > 0) {
-        html += `<div class="tt-features">${cella.caratteristiche.join(', ')}</div>`;
+        html += `<div class="tooltip__features">${cella.caratteristiche.join(' • ')}</div>`;
     } else {
-        html += `<div class="tt-features">Pianura / Senza caratteristiche</div>`;
+        html += `<div class="tooltip__features">Pianura / Prateria</div>`;
     }
 
-    // NUOVO: Mostra quanti lati del fiume tocca la cella
     if (cella.riverEdges > 0) {
-        html += `<div class="tt-features" style="color: #58a6ff;">Lati Fiume: ${cella.riverEdges}</div>`;
+        html += `<div class="tooltip__features" style="color: #60a5fa;">Lati Fiume: ${cella.riverEdges}</div>`;
     }
 
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
-    let activeLayout = activeSolution ? activeSolution.layout : {};
-
     let distretto = cella.distretto_base;
-    for (const [nome, p] of Object.entries(activeLayout)) {
-        if (p.q === cella.q && p.r === cella.r) distretto = nome;
+    if (activeSolution) {
+        for (const [nome, p] of Object.entries(activeSolution.layout)) {
+            if (p.q === cella.q && p.r === cella.r) distretto = nome;
+        }
     }
 
     if (distretto) {
-        html += `<div class="tt-district">${distretto}</div>`;
+        html += `<div class="tooltip__district">${distretto}</div>`;
+
+        // Se è centro cittadino o distretto, potremmo voler mostrare altro
+        if (activeSolution && distretto !== "Centro Cittadino") {
+            html += `<div class="tooltip__features" style="margin-top: 5px; opacity: 0.8;">Contribuisce alle rese del layout #${CIV6_DATA.soluzioni.indexOf(activeSolution) + 1}</div>`;
+        }
     }
 
     tt.innerHTML = html;
     tt.classList.add('visible');
-    
-    // Position tooltip after content is set
     positionTooltip(mouseX, mouseY);
 }
 
@@ -717,15 +756,15 @@ function initExportControls() {
     const btnExportJSON = document.getElementById('btnExportJSON');
     const btnExportPNG = document.getElementById('btnExportPNG');
     const btnCopyLayout = document.getElementById('btnCopyLayout');
-    
+
     if (btnExportJSON) {
         btnExportJSON.addEventListener('click', exportToJSON);
     }
-    
+
     if (btnExportPNG) {
         btnExportPNG.addEventListener('click', exportToPNG);
     }
-    
+
     if (btnCopyLayout) {
         btnCopyLayout.addEventListener('click', copyLayoutToClipboard);
     }
@@ -737,7 +776,7 @@ function exportToJSON() {
         showNotification('Nessuna soluzione selezionata', 'error');
         return;
     }
-    
+
     const exportData = {
         timestamp: new Date().toISOString(),
         city: CIV6_DATA.celle,
@@ -748,7 +787,7 @@ function exportToJSON() {
             totalYields: Object.values(activeSolution.rese).reduce((a, b) => a + b, 0)
         }
     };
-    
+
     const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -756,14 +795,14 @@ function exportToJSON() {
     a.download = `civ6_layout_${Date.now()}.json`;
     a.click();
     URL.revokeObjectURL(url);
-    
+
     showNotification('Layout esportato come JSON', 'success');
 }
 
 function exportToPNG() {
     const canvas = document.getElementById('hexCanvas');
     if (!canvas) return;
-    
+
     canvas.toBlob(blob => {
         const url = URL.createObjectURL(blob);
         const a = document.createElement('a');
@@ -771,7 +810,7 @@ function exportToPNG() {
         a.download = `civ6_layout_${Date.now()}.png`;
         a.click();
         URL.revokeObjectURL(url);
-        
+
         showNotification('Mappa esportata come PNG', 'success');
     });
 }
@@ -782,11 +821,11 @@ function copyLayoutToClipboard() {
         showNotification('Nessuna soluzione selezionata', 'error');
         return;
     }
-    
+
     const layoutText = Object.entries(activeSolution.layout)
         .map(([district, pos]) => `${district}: (${pos.q}, ${pos.r})`)
         .join('\n');
-    
+
     navigator.clipboard.writeText(layoutText).then(() => {
         showNotification('Layout copiato negli appunti', 'success');
     }).catch(() => {
@@ -798,33 +837,33 @@ function copyLayoutToClipboard() {
 function enhancedFileProcessing(text, fileName) {
     const fileStatusContainer = document.getElementById('fileStatusContainer');
     const fileStatusText = document.getElementById('fileStatusText');
-    
+
     // Show loading state
     fileStatusContainer.classList.add('file-loading');
     fileStatusText.innerHTML = `Elaborazione:<br><b>${fileName}</b>`;
-    
+
     // Simulate processing steps
     setTimeout(() => {
         fileStatusText.innerHTML = `Validazione formato...`;
     }, 500);
-    
+
     setTimeout(() => {
         fileStatusText.innerHTML = `Parsing dati città...`;
     }, 1000);
-    
+
     setTimeout(() => {
         // Process the actual file
         processRawLogText(text);
-        
+
         // Show success
         fileStatusContainer.classList.remove('file-loading');
         fileStatusContainer.classList.add('file-success');
         fileStatusText.innerHTML = `Caricato:<br><b>${fileName}</b>`;
-        
+
         setTimeout(() => {
             fileStatusContainer.classList.remove('file-success');
         }, 3000);
-        
+
     }, 1500);
 }
 
@@ -834,7 +873,7 @@ function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `notification notification-${type}`;
     notification.textContent = message;
-    
+
     // Style the notification
     Object.assign(notification.style, {
         position: 'fixed',
@@ -852,15 +891,15 @@ function showNotification(message, type = 'info') {
         transform: 'translateY(20px)',
         transition: 'all 0.3s ease'
     });
-    
+
     document.body.appendChild(notification);
-    
+
     // Animate in
     setTimeout(() => {
         notification.style.opacity = '1';
         notification.style.transform = 'translateY(0)';
     }, 100);
-    
+
     // Remove after 3 seconds
     setTimeout(() => {
         notification.style.opacity = '0';
@@ -897,7 +936,7 @@ CityScanner: {q: 2, r: -1, s: -1, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", 
 
     // Set city name for example
     window.extractedCityName = "Roma (Esempio)";
-    
+
     // Process example data
     enhancedFileProcessing(exampleData, "Esempio");
 }
@@ -908,7 +947,7 @@ document.addEventListener('DOMContentLoaded', () => {
     if (btnLoadExample) {
         btnLoadExample.addEventListener('click', loadExampleData);
     }
-    
+
     // Add event listener for manual tutorial button
     const btnShowTutorial = document.getElementById('btnShowTutorial');
     if (btnShowTutorial) {
@@ -941,16 +980,16 @@ function enhancedInitDragAndDrop() {
         dropZone.style.border = '2px dashed #444';
         dropZone.style.backgroundColor = '';
         dropZone.style.transform = 'scale(1)';
-        
+
         if (e.dataTransfer.files.length) {
             const file = e.dataTransfer.files[0];
-            
+
             // Validate file type
             if (!file.name.endsWith('.log') && !file.name.endsWith('.txt')) {
                 showNotification('Per favore carica un file .log o .txt', 'error');
                 return;
             }
-            
+
             enhancedFileProcessing(await file.text(), file.name);
         }
     });
