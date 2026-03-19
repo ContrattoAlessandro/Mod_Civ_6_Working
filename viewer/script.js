@@ -52,8 +52,7 @@ let optimizerWorker = null;
 
 // Rendi globale CIV6_DATA inizialmente vuota per non rompere roba se la mod non ha esportato nulla
 window.CIV6_DATA = window.CIV6_DATA || { celle: [], soluzioni: [] };
-window.extractedCityData = null; // Memorizza i dati del City Scanner
-window.extractedCityName = null; // Memorizza il nome della città
+window.extractedCities = []; // Array di città estratte (multi-città)
 
 let logFileHandle = null;
 let lastModifiedTime = 0;
@@ -152,89 +151,105 @@ function processRawLogText(text) {
         }
     }
 
-    if (extracted) {
-        if (window.extractedCityData !== extracted) {
-            window.extractedCityData = extracted;
-            const fileStatusText = document.getElementById('fileStatusText');
-            const cityHeader = document.getElementById('cityHeader');
-            const cityNameElement = document.getElementById('cityName');
+    if (extracted && Array.isArray(extracted) && extracted.length > 0) {
+        window.extractedCities = extracted;
+        const fileStatusText = document.getElementById('fileStatusText');
 
-            if (fileStatusText) {
-                const cityName = window.extractedCityName || 'Sconosciuta';
-                fileStatusText.innerHTML = `Città: <b>${cityName}</b><br><small>Dati trovati - ${new Date().toLocaleTimeString()}</small>`;
-            }
-
-            // Mostra l'header della città
-            if (cityHeader && cityNameElement && window.extractedCityName) {
-                cityNameElement.textContent = window.extractedCityName;
-                cityHeader.classList.add('visible');
-            }
-
-            triggerMapUpdate();
+        if (fileStatusText) {
+            const cityNames = extracted.map(c => c.name || `Città ${c.id + 1}`).join(', ');
+            fileStatusText.innerHTML = `${extracted.length} città trovate:<br><b>${cityNames}</b><br><small>${new Date().toLocaleTimeString()}</small>`;
         }
+
+        // Aggiorna UI selezione città
+        buildCitySelector();
+        
+        // Trigger aggiornamento mappa con tutte le città
+        triggerMapUpdate();
     } else {
         // Reset del testo quando non ci sono dati validi
         const fileStatusText = document.getElementById('fileStatusText');
         if (fileStatusText) {
             fileStatusText.innerHTML = 'Trascina qui il file <b>Lua.log</b>';
         }
+        window.extractedCities = [];
+        buildCitySelector();
     }
 }
 
 function triggerMapUpdate() {
-    // Usa un worker finto che genera solo la mappa per non bloccare la UI,
-    // o se i dati non sono tantissimi, si può decodificare sincrono.
-    // Per semplicità e pulizia, lo decodifico pseudo-sincronamente o mi affido al try/catch qua:
-
     try {
-        // Piccolo hack per parsare la pseudo-stringa usata nel worker, che non è JSON puro ma output python/lua
-        const linee = window.extractedCityData.trim().split("\n");
-        const nuoveCelle = [];
-
-        for (let l of linee) {
-            l = l.trim();
-            if (l.startsWith("{") || l.startsWith('"') || l.startsWith("'")) {
-                let jsonStr = l.replace(/'/g, '"').replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
-                const data = (new Function('return ' + jsonStr))();
-                if (data.q === undefined || data.r === undefined) continue;
-
-                // Extract primary terrain type
-                const terrainType = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
-
-                const c = {
-                    q: data.q, r: data.r, s: data.s,
-                    caratteristiche: [],
-                    distretto_base: null,
-                    riverEdges: data.rivEdges || 0,
-                    terrain: terrainType
-                };
-
-                if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
-                const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
-                if (tStr.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
-                if (tStr.includes("HILL")) c.caratteristiche.push("Collina");
-                if (tStr.includes("COAST")) c.caratteristiche.push("Costa");
-                if (data.riv) c.caratteristiche.push("Fiume");
-
-                const f = data.f || "NONE";
-                if (f.includes("JUNGLE")) c.caratteristiche.push("Foresta Pluviale");
-                if (f.includes("FOREST")) c.caratteristiche.push("Bosco");
-                if (f.includes("LAKE") || tStr.includes("LAKE")) c.caratteristiche.push("Lago");
-
-                const res = data.res || "NONE";
-                if (res !== "NONE") {
-                    // Semplificato per visualizzazione base prima dell'opt
-                    if (res.includes("COAL") || res.includes("IRON") || res.includes("NITER")) c.caratteristiche.push("Strategica");
-                    else c.caratteristiche.push("Lusso"); // fallback visivo
-                }
-
-                nuoveCelle.push(c);
-            }
+        const allCitiesCells = [];
+        
+        // Trova il centro di riferimento (prima città o media delle città)
+        let refQ = 0, refR = 0;
+        if (window.extractedCities.length > 0) {
+            refQ = window.extractedCities[0].centerQ;
+            refR = window.extractedCities[0].centerR;
         }
+        
+        // Colori per differenziare le città (opzionale)
+        const cityColors = ['#58a6ff', '#7ee787', '#e3b341', '#db61a2', '#a371f7', '#79c0ff'];
+        
+        window.extractedCities.forEach((city, cityIndex) => {
+            const cityColor = cityColors[cityIndex % cityColors.length];
+            const offsetQ = city.centerQ - refQ;
+            const offsetR = city.centerR - refR;
+            
+            for (let l of city.celleRaw) {
+                l = l.trim();
+                if (l.startsWith("{") || l.startsWith('"') || l.startsWith("'")) {
+                    let jsonStr = l.replace(/'/g, '"').replace(/:\s*True/gi, ': true').replace(/:\s*False/gi, ': false');
+                    const data = (new Function('return ' + jsonStr))();
+                    if (data.q === undefined || data.r === undefined) continue;
 
-        if (nuoveCelle.length > 0) {
-            window.CIV6_DATA = { celle: nuoveCelle, soluzioni: [] };
-            document.getElementById('resultsSection').classList.remove('visible'); // Nascondi vecchi risultati
+                    // Coordinate assolute = relative + offset della città
+                    const absQ = data.q + offsetQ;
+                    const absR = data.r + offsetR;
+                    const absS = -absQ - absR;
+
+                    const terrainType = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
+
+                    const c = {
+                        q: absQ, 
+                        r: absR, 
+                        s: absS,
+                        caratteristiche: [],
+                        distretto_base: null,
+                        riverEdges: data.rivEdges || 0,
+                        terrain: terrainType,
+                        cityId: city.id,
+                        cityName: city.name,
+                        cityColor: cityColor
+                    };
+
+                    // Centro cittadino è a coordinate relative (0,0)
+                    if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
+                    
+                    const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
+                    if (tStr.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
+                    if (tStr.includes("HILL")) c.caratteristiche.push("Collina");
+                    if (tStr.includes("COAST")) c.caratteristiche.push("Costa");
+                    if (data.riv) c.caratteristiche.push("Fiume");
+
+                    const f = data.f || "NONE";
+                    if (f.includes("JUNGLE")) c.caratteristiche.push("Foresta Pluviale");
+                    if (f.includes("FOREST")) c.caratteristiche.push("Bosco");
+                    if (f.includes("LAKE") || tStr.includes("LAKE")) c.caratteristiche.push("Lago");
+
+                    const res = data.res || "NONE";
+                    if (res !== "NONE") {
+                        if (res.includes("COAL") || res.includes("IRON") || res.includes("NITER")) c.caratteristiche.push("Strategica");
+                        else c.caratteristiche.push("Lusso");
+                    }
+
+                    allCitiesCells.push(c);
+                }
+            }
+        });
+
+        if (allCitiesCells.length > 0) {
+            window.CIV6_DATA = { celle: allCitiesCells, soluzioni: [] };
+            document.getElementById('resultsSection').classList.remove('visible');
             cameraX = window.innerWidth / 2;
             cameraY = window.innerHeight / 2;
             draw();
@@ -298,79 +313,193 @@ function convertPythonDictToJS(str) {
     return result;
 }
 
+// Modificato per supportare multi-città: restituisce array di oggetti città
 function estraiDaLua(text) {
     const lines = text.split('\n');
-    const dati_estratti = [];
-    let cityName = null;
-    let trovato_fine = false;
+    const cities = [];
+    let currentCity = null;
+    let inCityBlock = false;
+    let cityIndex = 0;
 
-    // Prima estrai il nome della città
-    for (let line of lines) {
-        if (line.includes('CityScanner: City:')) {
-            const match = line.match(/CityScanner: City:\s*(.+)/);
-            if (match) {
-                cityName = match[1].trim();
-                // Converti il nome della città da formato LOC_ a un formato più leggibile
-                cityName = cityName.replace(/^LOC_CITY_NAME_/, '').replace(/_STK$/, '');
-            }
-        }
-    }
-
-    // Poi estrai i dati delle celle
-    for (let i = lines.length - 1; i >= 0; i--) {
+    for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        if (line.includes('--- END CITY DATA SCAN ---')) {
-            trovato_fine = true;
+        
+        // Inizio nuovo blocco città
+        if (line.includes('--- START CITY DATA SCAN ---')) {
+            inCityBlock = true;
+            currentCity = {
+                id: cityIndex++,
+                name: null,
+                centerQ: 0,
+                centerR: 0,
+                centerS: 0,
+                celleRaw: []
+            };
             continue;
         }
-        if (trovato_fine) {
-            if (line.includes('--- START CITY DATA SCAN ---')) break;
-            if (line.includes('{') && line.includes('}')) {
+        
+        // Fine blocco città
+        if (line.includes('--- END CITY DATA SCAN ---')) {
+            if (currentCity && currentCity.celleRaw.length > 0) {
+                cities.push(currentCity);
+            }
+            inCityBlock = false;
+            currentCity = null;
+            continue;
+        }
+        
+        // Estrazione dati all'interno del blocco
+        if (inCityBlock && currentCity) {
+            // Nome città
+            if (line.includes('CityScanner: City:')) {
+                const match = line.match(/CityScanner: City:\s*(.+)/);
+                if (match) {
+                    let cityName = match[1].trim();
+                    cityName = cityName.replace(/^LOC_CITY_NAME_/, '').replace(/_STK$/, '');
+                    currentCity.name = cityName;
+                }
+                continue;
+            }
+            
+            // Coordinate centro assolute
+            if (line.includes('CityScanner: CenterCubic:')) {
+                const match = line.match(/q=(\-?\d+),\s*r=(\-?\d+),\s*s=(\-?\d+)/);
+                if (match) {
+                    currentCity.centerQ = parseInt(match[1]);
+                    currentCity.centerR = parseInt(match[2]);
+                    currentCity.centerS = parseInt(match[3]);
+                }
+                continue;
+            }
+            
+            // Dati cella
+            if (line.includes('CityScanner:') && (line.includes('{') || line.includes("'{") || line.includes('"{'))) {
                 const parti = line.split("CityScanner: ");
                 let riga_dati = (parti.length > 1) ? parti[1].trim() : line.trim();
                 if (riga_dati.startsWith("{") || riga_dati.startsWith("'") || riga_dati.startsWith("\"")) {
                     // Converti da formato Python (apici singoli) a formato JS
                     riga_dati = convertPythonDictToJS(riga_dati);
-                    dati_estratti.push(riga_dati);
+                    currentCity.celleRaw.push(riga_dati);
                 }
             }
         }
     }
 
-    // Memorizza il nome della città a livello globale
-    window.extractedCityName = cityName;
-
-    return dati_estratti.length ? dati_estratti.reverse().join('\n') : null;
+    return cities.length > 0 ? cities : null;
 }
 
 function initSetupUI() {
-    const districts = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"];
-    const container = document.getElementById('districtsSelector');
-
-    districts.forEach(d => {
-        const label = document.createElement('label');
-        label.className = 'district-checkbox';
-        label.innerHTML = `<input type="checkbox" value="${d}" checked> ${d}`;
-        container.appendChild(label);
-    });
-
     document.getElementById('btnOptimize').addEventListener('click', startOptimization);
 }
 
+// Costruisce il selettore città
+function buildCitySelector() {
+    const container = document.getElementById('citiesSelector');
+    container.innerHTML = '';
+    
+    if (!window.extractedCities || window.extractedCities.length === 0) {
+        container.innerHTML = '<p class="cities-placeholder">Carica un file Lua.log per vedere le città disponibili</p>';
+        buildDistrictsUI(); // Aggiorna anche i distretti (saranno vuoti)
+        return;
+    }
+    
+    window.extractedCities.forEach(city => {
+        const label = document.createElement('label');
+        label.className = 'city-checkbox';
+        const cellCount = city.celleRaw ? city.celleRaw.length : 0;
+        label.innerHTML = `
+            <input type="checkbox" value="${city.id}" checked onchange="buildDistrictsUI()"> 
+            <span class="city-name">${city.name || `Città ${city.id + 1}`}</span>
+            <span class="city-cells">(${cellCount} celle)</span>
+        `;
+        container.appendChild(label);
+    });
+    
+    // Aggiorna UI distretti
+    buildDistrictsUI();
+}
+
+// Costruisce UI distretti per città selezionate
+function buildDistrictsUI() {
+    const container = document.getElementById('districtsContainer');
+    container.innerHTML = '';
+    
+    // Ottieni città selezionate
+    const selectedCityIds = Array.from(document.querySelectorAll('#citiesSelector input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    const selectedCities = window.extractedCities.filter(c => selectedCityIds.includes(c.id));
+    
+    if (selectedCities.length === 0) {
+        container.innerHTML = '<p class="districts-placeholder">Seleziona almeno una città per configurare i distretti</p>';
+        return;
+    }
+    
+    const allDistricts = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"];
+    
+    selectedCities.forEach(city => {
+        const citySection = document.createElement('div');
+        citySection.className = 'city-districts-section';
+        
+        const cityHeader = document.createElement('div');
+        cityHeader.className = 'city-districts-header';
+        cityHeader.innerHTML = `<strong>${city.name || `Città ${city.id + 1}`}</strong>`;
+        citySection.appendChild(cityHeader);
+        
+        const districtsGrid = document.createElement('div');
+        districtsGrid.className = 'districts-selector';
+        
+        allDistricts.forEach(d => {
+            const label = document.createElement('label');
+            label.className = 'district-checkbox';
+            label.innerHTML = `<input type="checkbox" value="${d}" data-city="${city.id}" checked> ${d}`;
+            districtsGrid.appendChild(label);
+        });
+        
+        citySection.appendChild(districtsGrid);
+        container.appendChild(citySection);
+    });
+}
+
 function startOptimization() {
-    const cityData = window.extractedCityData;
-    if (!cityData) {
-        showNotification("Nessun dato City Scanner caricato!", 'error');
+    // Ottieni città selezionate
+    const selectedCityIds = Array.from(document.querySelectorAll('#citiesSelector input[type="checkbox"]:checked'))
+        .map(cb => parseInt(cb.value));
+    
+    if (selectedCityIds.length === 0) {
+        showNotification("Seleziona almeno una città!", 'error');
         return;
     }
-
-    const checkboxes = document.querySelectorAll('#districtsSelector input[type="checkbox"]:checked');
-    const userDistricts = Array.from(checkboxes).map(cb => cb.value);
-
-    if (userDistricts.length === 0) {
-        showNotification("Seleziona almeno un distretto!", 'error');
+    
+    // Ottieni distretti per città
+    const cityDistricts = {};
+    let totalDistricts = 0;
+    
+    selectedCityIds.forEach(cityId => {
+        const checkboxes = document.querySelectorAll(`#districtsContainer input[data-city="${cityId}"]:checked`);
+        const districts = Array.from(checkboxes).map(cb => cb.value);
+        cityDistricts[cityId] = districts;
+        totalDistricts += districts.length;
+    });
+    
+    if (totalDistricts === 0) {
+        showNotification("Seleziona almeno un distretto per una delle città!", 'error');
         return;
     }
+    
+    // Prepara dati città per il worker
+    const citiesData = selectedCityIds.map(cityId => {
+        const city = window.extractedCities.find(c => c.id === cityId);
+        return {
+            id: city.id,
+            name: city.name,
+            centerQ: city.centerQ,
+            centerR: city.centerR,
+            centerS: city.centerS,
+            celleRaw: city.celleRaw,
+            districts: cityDistricts[cityId]
+        };
+    });
 
     // UI Updates
     document.getElementById('btnOptimize').disabled = true;
@@ -393,7 +522,6 @@ function startOptimization() {
         } else if (msg.type === 'COMPLETE') {
             try {
                 CIV6_DATA = msg.data;
-                // alert("Debug: Ricevuto JSON con " + CIV6_DATA.soluzioni.length + " layout");
 
                 document.getElementById('btnOptimize').disabled = false;
                 document.getElementById('progressContainer').classList.remove('visible');
@@ -424,8 +552,7 @@ function startOptimization() {
 
     optimizerWorker.postMessage({
         message: 'START_OPTIMIZATION',
-        cityData: cityData,
-        userDistricts: userDistricts,
+        citiesData: citiesData,
         generations: generations,
         populationSize: populationSize
     });
@@ -743,6 +870,12 @@ function positionTooltip(mouseX, mouseY) {
 function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
     if (!activeSolution || !distrettoNome || distrettoNome === "Centro Cittadino") return null;
 
+    // Estrai il nome del distretto senza prefisso città
+    let nomeBase = distrettoNome;
+    if (distrettoNome.includes('] ')) {
+        nomeBase = distrettoNome.split('] ')[1];
+    }
+
     const direzioni = [
         { q: 1, r: 0, s: -1 }, { q: 1, r: -1, s: 0 }, { q: 0, r: -1, s: 1 },
         { q: -1, r: 0, s: 1 }, { q: -1, r: 1, s: 0 }, { q: 0, r: 1, s: -1 }
@@ -768,36 +901,51 @@ function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
     }).filter(c => c !== null);
 
     const numDistAdj = celleAdiacenti.filter(c => c.distretto_effettivo !== null).length;
-    const haGoverno = celleAdiacenti.some(c => c.distretto_effettivo === "Piazza del Governo");
+    
+    // Controlla se c'è una piazza del governo adiacente (considerando anche prefisso)
+    const haGoverno = celleAdiacenti.some(c => {
+        if (!c.distretto_effettivo) return false;
+        const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
+        return nomeEffettivo === "Piazza del Governo";
+    });
+    
     let bonus = Math.floor(numDistAdj / 2) + (haGoverno ? 1 : 0);
 
     let tipo = '', valore = 0;
-    if (distrettoNome === "Campus") {
+    if (nomeBase === "Campus") {
         const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
         const b = celleAdiacenti.filter(c => c.caratteristiche.includes("Barriera Corallina")).length * 2;
         const g = celleAdiacenti.filter(c => c.caratteristiche.includes("Fessura Geotermale")).length * 2;
         const f = celleAdiacenti.filter(c => c.caratteristiche.includes("Foresta Pluviale")).length;
         valore = m + b + g + Math.floor(f / 2) + bonus; tipo = 'Scienza';
-    } else if (distrettoNome === "Hub Commerciale") {
+    } else if (nomeBase === "Hub Commerciale") {
         const haFiume = cella.caratteristiche.includes("Fiume") ? 2 : 0;
-        const p = celleAdiacenti.filter(c => c.distretto_effettivo === "Porto").length * 2;
+        const p = celleAdiacenti.filter(c => {
+            if (!c.distretto_effettivo) return false;
+            const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
+            return nomeEffettivo === "Porto";
+        }).length * 2;
         valore = haFiume + p + bonus; tipo = 'Oro';
-    } else if (distrettoNome === "Porto") {
+    } else if (nomeBase === "Porto") {
         const cc = celleAdiacenti.filter(c => c.distretto_effettivo === "Centro Cittadino").length * 2;
         const rm = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Marina")).length;
         valore = cc + rm + bonus; tipo = 'Oro';
-    } else if (distrettoNome === "Zona Industriale") {
-        const ad = celleAdiacenti.filter(c => c.distretto_effettivo === "Acquedotto" || c.distretto_effettivo === "Diga").length * 2;
+    } else if (nomeBase === "Zona Industriale") {
+        const ad = celleAdiacenti.filter(c => {
+            if (!c.distretto_effettivo) return false;
+            const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
+            return nomeEffettivo === "Acquedotto" || nomeEffettivo === "Diga";
+        }).length * 2;
         const s = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Strategica") && !c.distretto_effettivo).length;
         const q = celleAdiacenti.filter(c => c.caratteristiche.includes("Potenziale Cava") && !c.distretto_effettivo).length;
         const numMiniere = celleAdiacenti.filter(c => (c.caratteristiche.includes("Collina") || c.caratteristiche.includes("Potenziale Miniera")) && !c.distretto_effettivo).length;
         const numSegherie = celleAdiacenti.filter(c => c.caratteristiche.includes("Bosco") && !c.distretto_effettivo).length;
         valore = ad + s + q + Math.floor((numMiniere + numSegherie) / 2) + bonus; tipo = 'Produzione';
-    } else if (distrettoNome === "Piazza del Teatro") {
+    } else if (nomeBase === "Piazza del Teatro") {
         valore = bonus; tipo = 'Cultura';
-    } else if (distrettoNome === "Accampamento") {
+    } else if (nomeBase === "Accampamento") {
         valore = bonus; tipo = 'Produzione';
-    } else if (distrettoNome === "Luogo Santo") {
+    } else if (nomeBase === "Luogo Santo") {
         const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
         const mn = celleAdiacenti.filter(c => c.caratteristiche.includes("Meraviglia Naturale")).length * 2;
         const bo = celleAdiacenti.filter(c => c.caratteristiche.includes("Bosco") && !c.distretto_effettivo).length;
@@ -998,31 +1146,29 @@ function showNotification(message, type = 'info') {
 function loadExampleData() {
     const exampleData = `--- START CITY DATA SCAN ---
 CityScanner: City: LOC_CITY_NAME_ROME_STK
-CityScanner: {q: 0, r: 0, s: 0, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 1, r: 0, s: -1, t: ["TERRAIN_GRASS_HILLS"], f: ["FOREST"], res: "IRON", riv: false, rivEdges: 0}
-CityScanner: {q: 0, r: 1, s: -1, t: ["TERRAIN_PLAINS"], f: "NONE", res: "WHEAT", riv: true, rivEdges: 1}
-CityScanner: {q: -1, r: 1, s: 0, t: ["TERRAIN_PLAINS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: -1, r: 0, s: 1, t: ["TERRAIN_GRASS"], f: ["FOREST"], res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 0, r: -1, s: 1, t: ["TERRAIN_COAST"], f: "NONE", res: "FISH", riv: false, rivEdges: 0}
-CityScanner: {q: 1, r: -1, s: 0, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 2, r: 0, s: -2, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 1, r: 1, s: -2, t: ["TERRAIN_PLAINS_HILLS"], f: "NONE", res: "STONE", riv: false, rivEdges: 0}
-CityScanner: {q: 0, r: 2, s: -2, t: ["TERRAIN_PLAINS"], f: ["FOREST"], res: "NONE", riv: true, rivEdges: 2}
-CityScanner: {q: -1, r: 2, s: -1, t: ["TERRAIN_GRASS"], f: "NONE", res: "CATTLE", riv: false, rivEdges: 0}
-CityScanner: {q: -2, r: 2, s: 0, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: -2, r: 1, s: 1, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: -2, r: 0, s: 2, t: ["TERRAIN_MOUNTAIN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: -1, r: -1, s: 2, t: ["TERRAIN_GRASS"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 0, r: -2, s: 2, t: ["TERRAIN_COAST"], f: "NONE", res: "CRAB", riv: false, rivEdges: 0}
-CityScanner: {q: 1, r: -2, s: 1, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
-CityScanner: {q: 2, r: -1, s: -1, t: ["TERRAIN_OCEAN"], f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: CenterCubic: q=10, r=5, s=-15
+CityScanner: {q: 0, r: 0, s: 0, t: "TERRAIN_GRASS", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: 0, s: -1, t: "TERRAIN_GRASS_HILLS", f: "FEATURE_FOREST", res: "IRON", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: 1, s: -1, t: "TERRAIN_PLAINS", f: "NONE", res: "WHEAT", riv: true, rivEdges: 1}
+CityScanner: {q: -1, r: 1, s: 0, t: "TERRAIN_PLAINS", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -1, r: 0, s: 1, t: "TERRAIN_GRASS", f: "FEATURE_FOREST", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: -1, s: 1, t: "TERRAIN_COAST", f: "NONE", res: "FISH", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: -1, s: 0, t: "TERRAIN_OCEAN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 2, r: 0, s: -2, t: "TERRAIN_GRASS", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: 1, s: -2, t: "TERRAIN_PLAINS_HILLS", f: "NONE", res: "STONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: 2, s: -2, t: "TERRAIN_PLAINS", f: "FEATURE_FOREST", res: "NONE", riv: true, rivEdges: 2}
+CityScanner: {q: -1, r: 2, s: -1, t: "TERRAIN_GRASS", f: "NONE", res: "CATTLE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 2, s: 0, t: "TERRAIN_GRASS_MOUNTAIN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 1, s: 1, t: "TERRAIN_GRASS_MOUNTAIN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -2, r: 0, s: 2, t: "TERRAIN_GRASS_MOUNTAIN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: -1, r: -1, s: 2, t: "TERRAIN_GRASS", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 0, r: -2, s: 2, t: "TERRAIN_COAST", f: "NONE", res: "CRABS", riv: false, rivEdges: 0}
+CityScanner: {q: 1, r: -2, s: 1, t: "TERRAIN_OCEAN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
+CityScanner: {q: 2, r: -1, s: -1, t: "TERRAIN_OCEAN", f: "NONE", res: "NONE", riv: false, rivEdges: 0}
 --- END CITY DATA SCAN ---`;
 
-    // Set city name for example
-    window.extractedCityName = "Roma (Esempio)";
-
     // Process example data
-    enhancedFileProcessing(exampleData, "Esempio");
+    enhancedFileProcessing(exampleData, "Esempio Roma");
 }
 
 // Add event listener for example button

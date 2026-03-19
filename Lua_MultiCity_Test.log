@@ -1,0 +1,162 @@
+DebugHotloadCache: GameDebug initialized!
+Test: Test.LUA loaded!
+JoiningRoom: OnFinishedGameplayContentConfigure() g_waitingForContentConfigure=true
+JoiningRoom: OnFinishedGameplayContentConfigure() g_waitingForContentConfigure=true
+LoadGameMenu: LoadGameMenu::OnLoadYes() leaving the network session.
+LoadScreen: true
+LoadScreen: false
+WorldCongress: Initializing World Congress Lua
+MapLabelManager: OCEANO ATLANTICO (-nan, -nan)
+MapLabelManager: MAR GLACIALE ARTICO (-nan, -nan)
+MapLabelManager: OCEANO REICO (-nan, -nan)
+MapSearchPanel: Created SearchContext 'MapSearch_Primary'
+MapSearchPanel: Created SearchContext 'MapSearch_Suggestions'
+MapPinPopup: initializing MapTacks.IconOptions(0)
+MapPinPopup: Selected 16 columns
+InGame: Loading InGame UI - C:/Users/alexa/Documents/My Games/Sid Meier's Civilization VI/Mods/CityScannerMod/CityScanner
+CityScanner: City Scanner Ready - Coordinates synced with Python Simulator.
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/DedicationPopup
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/DisloyalCityChooser
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/EraProgressPanel
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/EraReviewPopup
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/ExpansionIntro
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/GovernorAssignmentChooser
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/GovernorPanel
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/HistoricMoments
+InGame: Loading InGame UI - ../../../DLC/Expansion2/UI/Additions/WorldCrisisPopup
+TutorialUIRoot: Tutorial: Firaxis in game tutorial prompts.
+TutorialUIRoot: Version: 1
+TutorialUIRoot: Loading bank of items for tutorial scenario: 'BASE'
+MapLabelManager: OCEANO ATLANTICO (851.55529785156, 1016.6275634766)
+LoadScreen: OnLoadGameViewStateDone
+PlotInfo: PlotInfo::OnCitySelectionChanged	0	65536	53	27	0	true	false
+CityScanner: --- START CITY DATA SCAN ---
+CityScanner: City: LOC_CITY_NAME_LISBON_STK
+CityScanner: CenterCubic: q=40, r=27, s=-67
+CityScanner: {'q': 0, 'r': -4, 's': 4, 't': 'TERRAIN_GRASS_MOUNTAIN', 'f': 'FEATURE_VOLCANO', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': -4, 's': 3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -4, 's': 2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_CRABS', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -4, 's': 1, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -4, 's': 0, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_FISH', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -3, 's': 4, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 0, 'r': -3, 's': 3, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 1, 'r': -3, 's': 2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -3, 's': 1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -3, 's': 0, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -3, 's': -1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': -2, 'r': -2, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_WHALES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -2, 's': 3, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 3}
+CityScanner: {'q': 0, 'r': -2, 's': 2, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 1, 'r': -2, 's': 1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FOREST', 'res': 'RESOURCE_URANIUM', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -2, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -2, 's': -1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'RESOURCE_MAIZE', 'riv': true, 'rivEdges': 3}
+CityScanner: {'q': 4, 'r': -2, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': -3, 'r': -1, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': -1, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -1, 's': 2, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'RESOURCE_NITER', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 0, 'r': -1, 's': 1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 1, 'r': -1, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'RESOURCE_STONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -1, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 3, 'r': -1, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 4}
+CityScanner: {'q': 4, 'r': -1, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'RESOURCE_WHEAT', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': -4, 'r': 0, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_WHALES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 0, 's': 3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 0, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 0, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 0, 'r': 0, 's': 0, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 1, 'r': 0, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 0, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 3, 'r': 0, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 3}
+CityScanner: {'q': 4, 'r': 0, 's': -4, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -4, 'r': 1, 's': 3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 1, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 1, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_BANANAS', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 1, 's': 0, 't': 'TERRAIN_PLAINS_MOUNTAIN', 'f': 'NONE', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 0, 'r': 1, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 1, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_HORSES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 1, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': 1, 's': -4, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -4, 'r': 2, 's': 2, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'RESOURCE_SHEEP', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 2, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 2, 's': 0, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 2, 's': -1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': 2, 's': -2, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 2, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_HORSES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 2, 's': -4, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -4, 'r': 3, 's': 1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 3, 's': 0, 't': 'TERRAIN_DESERT_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 3, 's': -1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 3, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_GEOTHERMAL_FISSURE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': 3, 's': -3, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 3, 's': -4, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -4, 'r': 4, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 4, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 4, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_WHEAT', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 4, 's': -3, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': 4, 's': -4, 't': 'TERRAIN_GRASS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: --- END CITY DATA SCAN ---
+CityScanner: --- START CITY DATA SCAN ---
+CityScanner: City: LOC_CITY_NAME_PORTO_STK
+CityScanner: CenterCubic: q=44, r=25, s=-69
+CityScanner: {'q': -4, 'r': 0, 's': 4, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -4, 'r': 1, 's': 3, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -4, 'r': 2, 's': 2, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -4, 'r': 3, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -4, 'r': 4, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': -1, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 0, 's': 3, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FOREST', 'res': 'RESOURCE_URANIUM', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 1, 's': 2, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'RESOURCE_STONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 2, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 3, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'RESOURCE_HORSES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -3, 'r': 4, 's': -1, 't': 'TERRAIN_DESERT', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': -2, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_CRABS', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': -1, 's': 3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 0, 's': 2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 1, 's': 1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': -2, 'r': 2, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': -2, 'r': 3, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_JUNGLE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -2, 'r': 4, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -3, 's': 4, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_FISH', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -2, 's': 3, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': -1, 's': 2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': -1, 'r': 0, 's': 1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'RESOURCE_MAIZE', 'riv': true, 'rivEdges': 3}
+CityScanner: {'q': -1, 'r': 1, 's': 0, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 4}
+CityScanner: {'q': -1, 'r': 2, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 3}
+CityScanner: {'q': -1, 'r': 3, 's': -2, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': -1, 'r': 4, 's': -3, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': -4, 's': 4, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': -3, 's': 3, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_WHALES', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': -2, 's': 2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'RESOURCE_FISH', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': -1, 's': 1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 0, 'r': 0, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FLOODPLAINS_GRASSLAND', 'res': 'NONE', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 0, 'r': 1, 's': -1, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'RESOURCE_WHEAT', 'riv': true, 'rivEdges': 1}
+CityScanner: {'q': 0, 'r': 2, 's': -2, 't': 'TERRAIN_PLAINS', 'f': 'FEATURE_FLOODPLAINS_PLAINS', 'res': 'NONE', 'riv': true, 'rivEdges': 2}
+CityScanner: {'q': 0, 'r': 3, 's': -3, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 0, 'r': 4, 's': -4, 't': 'TERRAIN_GRASS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': -4, 's': 3, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': -3, 's': 2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': -2, 's': 1, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': -1, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_FOREST', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 0, 's': -1, 't': 'TERRAIN_GRASS', 'f': 'FEATURE_JUNGLE', 'res': 'RESOURCE_BANANAS', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 1, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 2, 's': -3, 't': 'TERRAIN_GRASS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 1, 'r': 3, 's': -4, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -4, 's': 2, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -3, 's': 1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -2, 's': 0, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': -1, 's': -1, 't': 'TERRAIN_GRASS_MOUNTAIN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 0, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 1, 's': -3, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 2, 'r': 2, 's': -4, 't': 'TERRAIN_PLAINS_HILLS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -4, 's': 1, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -3, 's': 0, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -2, 's': -1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': -1, 's': -2, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': 0, 's': -3, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 3, 'r': 1, 's': -4, 't': 'TERRAIN_PLAINS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -4, 's': 0, 't': 'TERRAIN_OCEAN', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -3, 's': -1, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -2, 's': -2, 't': 'TERRAIN_COAST', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': -1, 's': -3, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: {'q': 4, 'r': 0, 's': -4, 't': 'TERRAIN_GRASS', 'f': 'NONE', 'res': 'NONE', 'riv': false, 'rivEdges': 0}
+CityScanner: --- END CITY DATA SCAN ---

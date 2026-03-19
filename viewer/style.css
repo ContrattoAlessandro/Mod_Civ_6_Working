@@ -1489,3 +1489,110 @@ textarea {
 .visible {
     display: block !important;
 }
+
+/* ==========================================================================
+   Multi-City UI Styles
+   ========================================================================== */
+
+/* Cities Selector */
+.cities-selector {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+}
+
+.cities-placeholder,
+.districts-placeholder {
+    color: var(--text-tertiary);
+    font-size: var(--text-sm);
+    font-style: italic;
+    padding: var(--space-md);
+    text-align: center;
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+}
+
+.city-checkbox {
+    display: flex;
+    align-items: center;
+    gap: var(--space-sm);
+    padding: var(--space-sm) var(--space-md);
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    cursor: pointer;
+    transition: all 0.2s ease;
+    border: 1px solid transparent;
+}
+
+.city-checkbox:hover {
+    background: var(--bg-elevated);
+    border-color: var(--glass-border);
+}
+
+.city-checkbox input[type="checkbox"] {
+    width: 18px;
+    height: 18px;
+    cursor: pointer;
+    accent-color: var(--accent-primary);
+}
+
+.city-checkbox .city-name {
+    font-weight: var(--font-medium);
+    color: var(--text-primary);
+    flex: 1;
+}
+
+.city-checkbox .city-cells {
+    font-size: var(--text-xs);
+    color: var(--text-tertiary);
+}
+
+/* Districts Container */
+.districts-container {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-md);
+    max-height: 400px;
+    overflow-y: auto;
+}
+
+.city-districts-section {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-md);
+    padding: var(--space-md);
+    border: 1px solid var(--glass-border);
+}
+
+.city-districts-header {
+    font-size: var(--text-sm);
+    color: var(--text-primary);
+    margin-bottom: var(--space-sm);
+    padding-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--glass-border);
+}
+
+.city-districts-section .districts-selector {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: var(--space-xs);
+}
+
+.city-districts-section .district-checkbox {
+    font-size: var(--text-xs);
+    padding: var(--space-xs) var(--space-sm);
+}
+
+/* Scrollbar styling for districts container */
+.districts-container::-webkit-scrollbar {
+    width: 6px;
+}
+
+.districts-container::-webkit-scrollbar-track {
+    background: var(--bg-tertiary);
+    border-radius: var(--radius-sm);
+}
+
+.districts-container::-webkit-scrollbar-thumb {
+    background: var(--accent-primary);
+    border-radius: var(--radius-sm);
+}
