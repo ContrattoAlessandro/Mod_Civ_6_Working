@@ -178,22 +178,36 @@ function processRawLogText(text) {
 
 function triggerMapUpdate() {
     try {
-        const allCitiesCells = [];
+        // Map per deduplicare celle con stesse coordinate
+        const cellMap = new Map();
         
-        // Trova il centro di riferimento (prima città o media delle città)
+        // Trova il centro di riferimento (prima città)
         let refQ = 0, refR = 0;
         if (window.extractedCities.length > 0) {
             refQ = window.extractedCities[0].centerQ;
             refR = window.extractedCities[0].centerR;
         }
         
-        // Colori per differenziare le città (opzionale)
+        // Colori per differenziare le città
         const cityColors = ['#58a6ff', '#7ee787', '#e3b341', '#db61a2', '#a371f7', '#79c0ff'];
+        
+        // Salva i centri delle città per il rendering
+        window.cityCenters = [];
         
         window.extractedCities.forEach((city, cityIndex) => {
             const cityColor = cityColors[cityIndex % cityColors.length];
             const offsetQ = city.centerQ - refQ;
             const offsetR = city.centerR - refR;
+            
+            // Salva centro città in coordinate assolute
+            window.cityCenters.push({
+                cityId: city.id,
+                cityName: city.name,
+                cityColor: cityColor,
+                q: offsetQ,
+                r: offsetR,
+                s: -offsetQ - offsetR
+            });
             
             for (let l of city.celleRaw) {
                 l = l.trim();
@@ -206,15 +220,18 @@ function triggerMapUpdate() {
                     const absQ = data.q + offsetQ;
                     const absR = data.r + offsetR;
                     const absS = -absQ - absR;
+                    const coordKey = `${absQ},${absR}`;
 
                     const terrainType = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
+                    
+                    const isCC = (data.q === 0 && data.r === 0);
 
                     const c = {
                         q: absQ, 
                         r: absR, 
                         s: absS,
                         caratteristiche: [],
-                        distretto_base: null,
+                        distretto_base: isCC ? "Centro Cittadino" : null,
                         riverEdges: data.rivEdges || 0,
                         terrain: terrainType,
                         cityId: city.id,
@@ -222,9 +239,6 @@ function triggerMapUpdate() {
                         cityColor: cityColor
                     };
 
-                    // Centro cittadino è a coordinate relative (0,0)
-                    if (data.q === 0 && data.r === 0) c.distretto_base = "Centro Cittadino";
-                    
                     const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
                     if (tStr.includes("MOUNTAIN")) c.caratteristiche.push("Montagna");
                     if (tStr.includes("HILL")) c.caratteristiche.push("Collina");
@@ -242,10 +256,20 @@ function triggerMapUpdate() {
                         else c.caratteristiche.push("Lusso");
                     }
 
-                    allCitiesCells.push(c);
+                    // Deduplicazione: Centro Cittadino ha sempre priorità
+                    const existing = cellMap.get(coordKey);
+                    if (!existing) {
+                        cellMap.set(coordKey, c);
+                    } else if (isCC && existing.distretto_base !== "Centro Cittadino") {
+                        // CC sovrascrive celle normali
+                        cellMap.set(coordKey, c);
+                    }
+                    // Altrimenti mantieni la cella esistente (prima città ha priorità)
                 }
             }
         });
+
+        const allCitiesCells = Array.from(cellMap.values());
 
         if (allCitiesCells.length > 0) {
             window.CIV6_DATA = { celle: allCitiesCells, soluzioni: [] };
@@ -676,34 +700,64 @@ function draw() {
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
     let activeLayout = activeSolution ? activeSolution.layout : {};
 
+    // Helper: estrai nome base distretto (rimuovi prefisso [CityName])
+    function getDistrettoBase(nome) {
+        if (nome && nome.includes('] ')) return nome.split('] ')[1];
+        return nome;
+    }
+    
+    // Helper: estrai prefisso città dal nome distretto
+    function getCityPrefix(nome) {
+        if (nome && nome.includes('] ')) {
+            const match = nome.match(/^\[(.+?)\]/);
+            return match ? match[1] : null;
+        }
+        return null;
+    }
+
     // Disegna tutte le celle esportate
     CIV6_DATA.celle.forEach(cella => {
         const pos = hexToPixel(cella.q, cella.r);
 
         let bgColor = getHexColor(cella);
-        let strokeColor = 'rgba(255, 255, 255, 0.1)';
         let isHovered = hoveredHex && hoveredHex.q === cella.q && hoveredHex.r === cella.r;
+        
+        // Colore bordo basato sull'appartenenza alla città
+        let strokeColor = 'rgba(255, 255, 255, 0.1)';
+        let strokeWidth = 1;
+        
+        if (cella.cityColor && window.extractedCities && window.extractedCities.length > 1) {
+            // Bordo colorato per mostrare appartenenza alla città
+            strokeColor = cella.cityColor + '80'; // 50% opacità
+            strokeWidth = 2;
+        }
 
         if (isHovered) {
             strokeColor = 'rgba(255, 255, 255, 0.8)';
+            strokeWidth = 3;
         }
 
-        drawHex(pos.x, pos.y, HEX_SIZE - 1, bgColor, strokeColor, isHovered ? 2 : 1);
+        drawHex(pos.x, pos.y, HEX_SIZE - 1, bgColor, strokeColor, strokeWidth);
 
         // Disegna Distretto (Centro Cittadino o dal Layout)
         let renderDistretto = cella.distretto_base;
+        let distrettoCityPrefix = null;
 
         // Controlla se la soluzione attuale piazza un distretto qui
         for (const [nome_distretto, p] of Object.entries(activeLayout)) {
             if (p.q === cella.q && p.r === cella.r) {
                 renderDistretto = nome_distretto;
+                distrettoCityPrefix = getCityPrefix(nome_distretto);
                 break;
             }
         }
 
         if (renderDistretto) {
+            const distrettoBase = getDistrettoBase(renderDistretto);
+            const distColor = COLORS.DISTRICTS[distrettoBase] || COLORS.DISTRICTS[renderDistretto] || '#fff';
+            
             // Background nero più opaco per migliore contrasto
-            drawHex(pos.x, pos.y, HEX_SIZE - 10, 'rgba(0,0,0,0.85)', COLORS.DISTRICTS[renderDistretto] || '#fff', 2);
+            drawHex(pos.x, pos.y, HEX_SIZE - 10, 'rgba(0,0,0,0.85)', distColor, 2);
 
             // Nome Distretto
             ctx.fillStyle = '#ffffff';
@@ -714,13 +768,41 @@ function draw() {
             ctx.shadowColor = 'rgba(0,0,0,1)';
             ctx.shadowBlur = 4;
 
-            let txt = renderDistretto.substring(0, 3).toUpperCase();
-            if (renderDistretto === "Centro Cittadino") txt = "CC";
-            if (renderDistretto === "Hub Commerciale") txt = "HUB";
-            ctx.fillText(txt, pos.x, pos.y - 4);
-
-            // Se c'è una soluzione attiva, possiamo mostrare il bonus (non implementato individualmente nel worker ma nel totale)
-            // Per ora mostriamo l'abbreviazione del distretto un po' più in alto e lasciamo spazio per altro.
+            let txt = distrettoBase.substring(0, 3).toUpperCase();
+            if (distrettoBase === "Centro Cittadino") txt = "CC";
+            if (distrettoBase === "Hub Commerciale") txt = "HUB";
+            
+            // Per CC, mostra nome città sotto
+            if (distrettoBase === "Centro Cittadino") {
+                ctx.fillText(txt, pos.x, pos.y - 8);
+                
+                // Nome della città sotto il CC
+                ctx.font = 'bold 8px Inter';
+                const cityName = cella.cityName || '';
+                const shortName = cityName.length > 6 ? cityName.substring(0, 6) + '.' : cityName;
+                ctx.fillStyle = cella.cityColor || '#ffffff';
+                ctx.fillText(shortName, pos.x, pos.y + 6);
+            } else {
+                // Per distretti normali, mostra abbreviazione + indicatore città
+                ctx.fillText(txt, pos.x, pos.y - 6);
+                
+                // Indicatore città sotto (se multi-città)
+                if (distrettoCityPrefix || (cella.cityName && window.extractedCities && window.extractedCities.length > 1)) {
+                    const cityLabel = distrettoCityPrefix || cella.cityName || '';
+                    const shortCity = cityLabel.length > 5 ? cityLabel.substring(0, 5) : cityLabel;
+                    ctx.font = '7px Inter';
+                    
+                    // Trova il colore della città corrispondente
+                    let cityCol = cella.cityColor || '#aaa';
+                    if (distrettoCityPrefix && window.cityCenters) {
+                        const center = window.cityCenters.find(c => c.cityName === distrettoCityPrefix);
+                        if (center) cityCol = center.cityColor;
+                    }
+                    
+                    ctx.fillStyle = cityCol;
+                    ctx.fillText(shortCity, pos.x, pos.y + 7);
+                }
+            }
 
             ctx.shadowBlur = 0;
         }

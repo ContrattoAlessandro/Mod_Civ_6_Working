@@ -429,16 +429,42 @@ class MappaCitta {
     }
 }
 
-function verifica_vincoli(distretto, esagono, mappa) {
+// Calcola distanza esagonale tra due coordinate cubiche
+function hexDistance(q1, r1, s1, q2, r2, s2) {
+    return Math.max(Math.abs(q1 - q2), Math.abs(r1 - r2), Math.abs(s1 - s2));
+}
+
+// cityCenters: Map<cityName, {q, r, s}> - centri delle città in coordinate assolute della mappa congiunta
+function verifica_vincoli(distretto, esagono, mappa, cityCenters) {
     // Estrai il nome del distretto senza prefisso città (es. "[Lisboa] Campus" -> "Campus")
     let distretto_base = distretto;
+    let cityName = null;
     if (distretto.includes('] ')) {
-        distretto_base = distretto.split('] ')[1];
+        const match = distretto.match(/^\[(.+?)\]\s*(.+)$/);
+        if (match) {
+            cityName = match[1];
+            distretto_base = match[2];
+        }
     }
     
-    // Per mappa congiunta, rimuovi il controllo distanza dal centro assoluto
-    // I distretti possono essere ovunque nella mappa congiunta
-    // Il controllo viene fatto implicitamente dalla disponibilità delle celle
+    // Vincolo distanza: il distretto deve essere entro 3 esagoni dal centro della sua città
+    if (cityName && cityCenters && cityCenters.has(cityName)) {
+        const center = cityCenters.get(cityName);
+        const dist = hexDistance(esagono.q, esagono.r, esagono.s, center.q, center.r, center.s);
+        if (dist > 3) return false;
+    } else if (!cityName) {
+        // Singola città: controlla distanza dal centro (0,0,0)
+        if (esagono.distanza_dal_centro() > 3) return false;
+    }
+    
+    // Trova il centro della città di appartenenza per vincoli posizionali
+    let centerQ = 0, centerR = 0, centerS = 0;
+    if (cityName && cityCenters && cityCenters.has(cityName)) {
+        const center = cityCenters.get(cityName);
+        centerQ = center.q;
+        centerR = center.r;
+        centerS = center.s;
+    }
     
     const cella = mappa.celle.get(esagono.hashKey());
     if (!cella || cella.distretto !== null) return false;
@@ -459,13 +485,13 @@ function verifica_vincoli(distretto, esagono, mappa) {
 
     if (distretto_base === "Accampamento") {
         const adiacenti = esagono.adiacenti();
-        const tocca_centro = adiacenti.some(adj => adj.q === 0 && adj.r === 0);
+        const tocca_centro = adiacenti.some(adj => adj.q === centerQ && adj.r === centerR);
         if (tocca_centro) return false;
     }
 
     if (distretto_base === "Acquedotto") {
         const adiacenti = esagono.adiacenti();
-        const tocca_centro = adiacenti.some(adj => adj.q === 0 && adj.r === 0);
+        const tocca_centro = adiacenti.some(adj => adj.q === centerQ && adj.r === centerR);
         if (!tocca_centro) return false;
 
         let tocca_acqua = false;
@@ -654,9 +680,8 @@ function shuffle(array) {
     return array;
 }
 
-function genera_layout_casuale_valido(mappa, distretti) {
+function genera_layout_casuale_valido(mappa, distretti, cityCenters) {
     const layout = new Map();
-    // Per mappa congiunta, usa tutte le celle disponibili senza limitazione di distanza
     const celle_disponibili = Array.from(mappa.celle.values())
         .map(c => c.esagono);
 
@@ -667,7 +692,7 @@ function genera_layout_casuale_valido(mappa, distretti) {
             for (let usedEsag of layout.values()) {
                 if (usedEsag.equals(esagono)) alreadyUsed = true;
             }
-            if (!alreadyUsed && verifica_vincoli(distretto, esagono, mappa)) {
+            if (!alreadyUsed && verifica_vincoli(distretto, esagono, mappa, cityCenters)) {
                 layout.set(distretto, esagono);
                 break;
             }
@@ -676,7 +701,7 @@ function genera_layout_casuale_valido(mappa, distretti) {
     return layout;
 }
 
-function mutazione_intelligente(layout, mappa) {
+function mutazione_intelligente(layout, mappa, cityCenters) {
     if (layout.size === 0) return new Map();
     
     const nuovo_layout = new Map(layout);
@@ -691,7 +716,7 @@ function mutazione_intelligente(layout, mappa) {
             for (let usedEsag of nuovo_layout.values()) {
                 if (usedEsag.equals(esag)) return false;
             }
-            return verifica_vincoli(dist_da_mutare, esag, mappa);
+            return verifica_vincoli(dist_da_mutare, esag, mappa, cityCenters);
         });
 
     if (celle_valide.length > 0) {
@@ -703,7 +728,7 @@ function mutazione_intelligente(layout, mappa) {
 }
 
 // --- GESTIONE WEB WORKER ASINCRONA ---
-async function runOttimizzazioneSingle(citta, distretti, generazioni, popSize) {
+async function runOttimizzazioneSingle(citta, distretti, generazioni, popSize, cityCenters) {
     self.postMessage({ 
         type: 'PROGRESS', 
         message: `Generazione popolazione iniziale (0/${popSize})...`, 
@@ -712,7 +737,7 @@ async function runOttimizzazioneSingle(citta, distretti, generazioni, popSize) {
 
     let popolazione = [];
     for (let i = 0; i < popSize; i++) {
-        const layout = genera_layout_casuale_valido(citta, distretti);
+        const layout = genera_layout_casuale_valido(citta, distretti, cityCenters);
         const rese = simula_layout_con_distruzione(citta, layout);
         popolazione.push({ layout: layout, rese: rese });
     }
@@ -736,7 +761,7 @@ async function runOttimizzazioneSingle(citta, distretti, generazioni, popSize) {
         let nuovi_candidati = [];
         for (let padre of archivio_pareto) {
             for (let i = 0; i < 8; i++) {
-                const layout_figlio = mutazione_intelligente(padre.layout, citta);
+                const layout_figlio = mutazione_intelligente(padre.layout, citta, cityCenters);
                 const rese_figlio = simula_layout_con_distruzione(citta, layout_figlio);
                 nuovi_candidati.push({ layout: layout_figlio, rese: rese_figlio });
             }
@@ -813,6 +838,8 @@ self.onmessage = async function(e) {
                 
                 // Prepara celle
                 const allCells = [];
+                const cityColors = ['#58a6ff', '#7ee787', '#e3b341', '#db61a2', '#a371f7', '#79c0ff'];
+                const cityColor = cityColors[0];
                 for (let cella of city.celle.values()) {
                     allCells.push({
                         q: cella.esagono.q + offsetQ,
@@ -820,7 +847,10 @@ self.onmessage = async function(e) {
                         s: cella.esagono.s,
                         caratteristiche: Array.from(cella.caratteristiche),
                         distretto_base: cella.distretto,
-                        terrain: cella.terrain
+                        terrain: cella.terrain,
+                        cityName: cityData.name,
+                        cityId: cityData.id,
+                        cityColor: cityColor
                     });
                 }
                 
@@ -843,13 +873,18 @@ self.onmessage = async function(e) {
             
             // Raccogli tutti i distretti con prefisso città
             const allDistricts = [];
+            const cityColors = ['#58a6ff', '#7ee787', '#e3b341', '#db61a2', '#a371f7', '#79c0ff'];
             const cityOffsets = [];
+            const cityDataMap = new Map(); // Per recuperare info città durante caricamento celle
             
             for (let i = 0; i < citiesData.length; i++) {
                 const cityData = citiesData[i];
                 const offsetQ = cityData.centerQ - refQ;
                 const offsetR = cityData.centerR - refR;
-                cityOffsets.push({ q: offsetQ, r: offsetR });
+                const color = cityColors[i % cityColors.length];
+                
+                cityOffsets.push({ q: offsetQ, r: offsetR, color: color });
+                cityDataMap.set(i, { ...cityData, color: color });
                 
                 // Aggiungi distretti di questa città con prefisso
                 const cityPrefix = cityData.name ? `[${cityData.name}] ` : `[C${cityData.id}] `;
@@ -887,8 +922,14 @@ self.onmessage = async function(e) {
                             const hash = esagono.hashKey();
                             const cella = new Cella(esagono);
                             
+                            // Imposta metadati città
+                            cella.cityName = cityData.name || `C${cityData.id}`;
+                            cella.cityId = cityData.id;
+                            cella.cityColor = offset.color;
+                            
                             // Imposta centro cittadino
-                            if (data.q === 0 && data.r === 0) {
+                            const isCC = (data.q === 0 && data.r === 0);
+                            if (isCC) {
                                 cella.distretto = "Centro Cittadino";
                             }
                             
@@ -928,7 +969,13 @@ self.onmessage = async function(e) {
                                 if (miniera.some(m => res.includes(m))) cella.caratteristiche.add("Potenziale Miniera");
                             }
                             
-                            mappaCongiunta.celle.set(hash, cella);
+                            // Deduplicazione: Priorità al Centro Cittadino
+                            const existing = mappaCongiunta.celle.get(hash);
+                            if (!existing) {
+                                mappaCongiunta.celle.set(hash, cella);
+                            } else if (isCC && existing.distretto !== "Centro Cittadino") {
+                                mappaCongiunta.celle.set(hash, cella);
+                            }
                         } catch (e) {
                             // Ignora errori parsing singole celle
                         }
@@ -942,12 +989,26 @@ self.onmessage = async function(e) {
                 percent: 5 
             });
             
-            // Ottimizzazione congiunta
+            // Ottimizzazione congiunta con cityCenters
+            // Costruisci mappa dei centri città per vincoli di distanza
+            const cityCentersMap = new Map();
+            for (let i = 0; i < citiesData.length; i++) {
+                const cityData = citiesData[i];
+                const offset = cityOffsets[i];
+                const cityName = cityData.name || `C${cityData.id}`;
+                cityCentersMap.set(cityName, {
+                    q: offset.q,
+                    r: offset.r,
+                    s: -offset.q - offset.r
+                });
+            }
+            
             const result = await runOttimizzazioneSingle(
                 mappaCongiunta, 
                 allDistricts, 
                 generations || 500, 
-                populationSize || 1000
+                populationSize || 1000,
+                cityCentersMap
             );
             
             // Converti risultati
@@ -981,7 +1042,10 @@ self.onmessage = async function(e) {
                     s: cella.esagono.s,
                     caratteristiche: Array.from(cella.caratteristiche),
                     distretto_base: cella.distretto,
-                    terrain: cella.terrain
+                    terrain: cella.terrain,
+                    cityName: cella.cityName,
+                    cityId: cella.cityId,
+                    cityColor: cella.cityColor
                 });
             }
             
