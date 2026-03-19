@@ -12,40 +12,66 @@ let selectedSolutionId = null;
 let hoveredHex = null;
 let currentSortKey = 'Scienza';
 
-// Colori Terreni e Feature
+// Simplified terrain colors - clean and natural
 const COLORS = {
     TERRAINS: {
-        'TERRAIN_GRASS': '#4a7c2c',
-        'TERRAIN_GRASS_HILLS': '#5c8a38',
-        'TERRAIN_PLAINS': '#8a964a',
-        'TERRAIN_PLAINS_HILLS': '#9ca356',
-        'TERRAIN_DESERT': '#d5cc84',
-        'TERRAIN_DESERT_HILLS': '#e1d796',
-        'TERRAIN_COAST': '#3d8eb9',
-        'TERRAIN_OCEAN': '#225d80',
-        'TERRAIN_TUNDRA': '#8c9d9d',
-        'TERRAIN_SNOW': '#e6e6e6'
+        // Grasslands - Natural green
+        'TERRAIN_GRASS': { base: '#4a7c2c' },
+        'TERRAIN_GRASS_HILLS': { base: '#5c8a38' },
+
+        // Plains - Yellow-green
+        'TERRAIN_PLAINS': { base: '#9ca356' },
+        'TERRAIN_PLAINS_HILLS': { base: '#8a964a' },
+
+        // Desert - Sandy yellow
+        'TERRAIN_DESERT': { base: '#d4c46a' },
+        'TERRAIN_DESERT_HILLS': { base: '#c4b45a' },
+
+        // Water - Blue
+        'TERRAIN_COAST': { base: '#4a9eca' },
+        'TERRAIN_OCEAN': { base: '#2a6e8a' },
+
+        // Tundra - Grey
+        'TERRAIN_TUNDRA': { base: '#9aa8a8' },
+        'TERRAIN_TUNDRA_HILLS': { base: '#8a9898' }, // Aggiunto
+        
+        // Snow - White
+        'TERRAIN_SNOW': { base: '#e8e8e8' },
+        'TERRAIN_SNOW_HILLS': { base: '#d8d8d8' },   // Aggiunto
+        
+        'default': { base: '#9ca356' }
     },
+
     DISTRICTS: {
-        'Centro Cittadino': '#ffffff',
-        'Campus': '#58a6ff',
-        'Hub Commerciale': '#e3b341',
-        'Porto': '#2f65a1',
-        'Zona Industriale': '#d29922',
-        'Piazza del Teatro': '#db61a2',
-        'Accampamento': '#c9302c',
-        'Luogo Santo': '#e6edf3',
-        'Piazza del Governo': '#8a2be2',
-        'Acquedotto': '#6196a6',
-        'Diga': '#61a68f'
+        'Centro Cittadino': { color: '#ffffff' },
+        'Campus': { color: '#58a6ff' },
+        'Hub Commerciale': { color: '#e3b341' },
+        'Porto': { color: '#2f65a1' },
+        'Zona Industriale': { color: '#d29922' },
+        'Piazza del Teatro': { color: '#db61a2' },
+        'Accampamento': { color: '#c9302c' },
+        'Luogo Santo': { color: '#e6edf3' },
+        'Piazza del Governo': { color: '#8a2be2' },
+        'Acquedotto': { color: '#6196a6' },
+        'Diga': { color: '#61a68f' }
     },
+
     FEATURES: {
-        'Montagna': '#4d4d4d',
-        'Foresta Pluviale': '#1a4f1a',
-        'Bosco': '#2d5e2d',
-        'Lago': '#4cb5e8'
+        'Montagna': { base: '#6e6e7e' },
+        'Foresta Pluviale': { base: '#1a4a1a' },
+        'Bosco': { base: '#2a5a2a' },
+        'Lago': { base: '#4aaadd' }
     }
 };
+
+// Zoom and pan state
+let zoomLevel = 1;
+const MIN_ZOOM = 0.3;
+const MAX_ZOOM = 3;
+let targetZoom = 1;
+let isZooming = false;
+
+
 
 // Inizializzazione
 let optimizerWorker = null;
@@ -68,8 +94,8 @@ window.onload = () => {
 
     // Centra la telecamera
     if (CIV6_DATA.celle.length > 0) {
-        cameraX = window.innerWidth / 2;
-        cameraY = window.innerHeight / 2;
+        cameraX = canvas.width / 2;
+        cameraY = canvas.height / 2;
     }
 
     // Seleziona la prima soluzione di default
@@ -162,7 +188,7 @@ function processRawLogText(text) {
 
         // Aggiorna UI selezione città
         buildCitySelector();
-        
+
         // Trigger aggiornamento mappa con tutte le città
         triggerMapUpdate();
     } else {
@@ -186,14 +212,14 @@ function triggerMapUpdate() {
         // Se ci sono checkbox e nessuna selezionata, mappa vuota.
         const hasCheckboxes = document.querySelectorAll('#citiesSelector input[type="checkbox"]').length > 0;
         let citiesToProcess = window.extractedCities;
-        
+
         if (hasCheckboxes) {
             citiesToProcess = window.extractedCities.filter(c => selectedCityIds.includes(c.id));
         }
 
         // Map per deduplicare celle con stesse coordinate
         const cellMap = new Map();
-        
+
         // Se nessuna città da mostrare, resetta tutto
         if (citiesToProcess.length === 0) {
             window.CIV6_DATA = { celle: [], soluzioni: [] };
@@ -204,20 +230,20 @@ function triggerMapUpdate() {
         // Trova il centro di riferimento (prima città selezionata)
         const refQ = citiesToProcess[0].centerQ;
         const refR = citiesToProcess[0].centerR;
-        
+
         // Colori per differenziare le città
         const cityColors = ['#58a6ff', '#7ee787', '#e3b341', '#db61a2', '#a371f7', '#79c0ff'];
-        
+
         // Salva i centri delle città per il rendering
         window.cityCenters = [];
-        
+
         citiesToProcess.forEach((city) => {
             // Trova l'indice originale per mantenere il colore coerente
             const cityIndex = window.extractedCities.indexOf(city);
             const cityColor = cityColors[cityIndex % cityColors.length];
             const offsetQ = city.centerQ - refQ;
             const offsetR = city.centerR - refR;
-            
+
             // Salva centro città in coordinate assolute
             window.cityCenters.push({
                 cityId: city.id,
@@ -227,7 +253,7 @@ function triggerMapUpdate() {
                 r: offsetR,
                 s: -offsetQ - offsetR
             });
-            
+
             for (let l of city.celleRaw) {
                 l = l.trim();
                 if (l.startsWith("{") || l.startsWith('"') || l.startsWith("'")) {
@@ -241,13 +267,16 @@ function triggerMapUpdate() {
                     const absS = -absQ - absR;
                     const coordKey = `${absQ},${absR}`;
 
-                    const terrainType = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
-                    
+                    // Estrazione terreno con fallback robusto
+                    const terrainType = (Array.isArray(data.t) && data.t.length > 0) 
+                        ? data.t[0] 
+                        : (typeof data.t === 'string' && data.t !== "" ? data.t : 'TERRAIN_GRASS'); // Grassland come fallback più probabile per celle "vuote"
+
                     const isCC = (data.q === 0 && data.r === 0);
 
                     const c = {
-                        q: absQ, 
-                        r: absR, 
+                        q: absQ,
+                        r: absR,
                         s: absS,
                         caratteristiche: [],
                         distretto_base: isCC ? "Centro Cittadino" : null,
@@ -275,15 +304,24 @@ function triggerMapUpdate() {
                         else c.caratteristiche.push("Lusso");
                     }
 
-                    // Deduplicazione: Centro Cittadino ha sempre priorità
+                    // Deduplicazione: Centro Cittadino ha sempre priorità, altrimenti uniamo le caratteristiche
                     const existing = cellMap.get(coordKey);
                     if (!existing) {
                         cellMap.set(coordKey, c);
-                    } else if (isCC && existing.distretto_base !== "Centro Cittadino") {
+                    } else {
+                        // Unione caratteristiche (deduplicata)
+                        const allCaratt = [...existing.caratteristiche, ...c.caratteristiche];
+                        existing.caratteristiche = [...new Set(allCaratt)];
+                        
                         // CC sovrascrive celle normali
-                        cellMap.set(coordKey, c);
+                        if (isCC) {
+                            existing.distretto_base = "Centro Cittadino";
+                            existing.cityId = city.id;
+                            existing.cityName = city.name;
+                            existing.cityColor = cityColor;
+                            existing.terrain = terrainType;
+                        }
                     }
-                    // Altrimenti mantieni la cella esistente (prima città ha priorità)
                 }
             }
         });
@@ -293,8 +331,8 @@ function triggerMapUpdate() {
         if (allCitiesCells.length > 0) {
             window.CIV6_DATA = { celle: allCitiesCells, soluzioni: [] };
             document.getElementById('resultsSection').classList.remove('visible');
-            cameraX = window.innerWidth / 2;
-            cameraY = window.innerHeight / 2;
+            cameraX = canvas.width / 2;
+            cameraY = canvas.height / 2;
             draw();
         }
 
@@ -366,7 +404,7 @@ function estraiDaLua(text) {
 
     for (let i = 0; i < lines.length; i++) {
         const line = lines[i];
-        
+
         // Inizio nuovo blocco città
         if (line.includes('--- START CITY DATA SCAN ---')) {
             inCityBlock = true;
@@ -380,7 +418,7 @@ function estraiDaLua(text) {
             };
             continue;
         }
-        
+
         // Fine blocco città
         if (line.includes('--- END CITY DATA SCAN ---')) {
             if (currentCity && currentCity.celleRaw.length > 0) {
@@ -390,7 +428,7 @@ function estraiDaLua(text) {
             currentCity = null;
             continue;
         }
-        
+
         // Estrazione dati all'interno del blocco
         if (inCityBlock && currentCity) {
             // Nome città
@@ -403,7 +441,7 @@ function estraiDaLua(text) {
                 }
                 continue;
             }
-            
+
             // Coordinate centro assolute
             if (line.includes('CityScanner: CenterCubic:')) {
                 const match = line.match(/q=(\-?\d+),\s*r=(\-?\d+),\s*s=(\-?\d+)/);
@@ -414,7 +452,7 @@ function estraiDaLua(text) {
                 }
                 continue;
             }
-            
+
             // Dati cella
             if (line.includes('CityScanner:') && (line.includes('{') || line.includes("'{") || line.includes('"{'))) {
                 const parti = line.split("CityScanner: ");
@@ -445,13 +483,13 @@ function onCitySelectionChange() {
 function buildCitySelector() {
     const container = document.getElementById('citiesSelector');
     container.innerHTML = '';
-    
+
     if (!window.extractedCities || window.extractedCities.length === 0) {
         container.innerHTML = '<p class="cities-placeholder">Carica un file Lua.log per vedere le città disponibili</p>';
         buildDistrictsUI(); // Aggiorna anche i distretti (saranno vuoti)
         return;
     }
-    
+
     window.extractedCities.forEach(city => {
         const label = document.createElement('label');
         label.className = 'city-checkbox';
@@ -463,7 +501,7 @@ function buildCitySelector() {
         `;
         container.appendChild(label);
     });
-    
+
     // Aggiorna UI distretti
     buildDistrictsUI();
 }
@@ -472,39 +510,39 @@ function buildCitySelector() {
 function buildDistrictsUI() {
     const container = document.getElementById('districtsContainer');
     container.innerHTML = '';
-    
+
     // Ottieni città selezionate
     const selectedCityIds = Array.from(document.querySelectorAll('#citiesSelector input[type="checkbox"]:checked'))
         .map(cb => parseInt(cb.value));
-    
+
     const selectedCities = window.extractedCities.filter(c => selectedCityIds.includes(c.id));
-    
+
     if (selectedCities.length === 0) {
         container.innerHTML = '<p class="districts-placeholder">Seleziona almeno una città per configurare i distretti</p>';
         return;
     }
-    
+
     const allDistricts = ["Diga", "Acquedotto", "Accampamento", "Porto", "Campus", "Luogo Santo", "Piazza del Teatro", "Zona Industriale", "Hub Commerciale", "Piazza del Governo"];
-    
+
     selectedCities.forEach(city => {
         const citySection = document.createElement('div');
         citySection.className = 'city-districts-section';
-        
+
         const cityHeader = document.createElement('div');
         cityHeader.className = 'city-districts-header';
         cityHeader.innerHTML = `<strong>${city.name || `Città ${city.id + 1}`}</strong>`;
         citySection.appendChild(cityHeader);
-        
+
         const districtsGrid = document.createElement('div');
         districtsGrid.className = 'districts-selector';
-        
+
         allDistricts.forEach(d => {
             const label = document.createElement('label');
             label.className = 'district-checkbox';
             label.innerHTML = `<input type="checkbox" value="${d}" data-city="${city.id}" checked> ${d}`;
             districtsGrid.appendChild(label);
         });
-        
+
         citySection.appendChild(districtsGrid);
         container.appendChild(citySection);
     });
@@ -514,28 +552,28 @@ function startOptimization() {
     // Ottieni città selezionate
     const selectedCityIds = Array.from(document.querySelectorAll('#citiesSelector input[type="checkbox"]:checked'))
         .map(cb => parseInt(cb.value));
-    
+
     if (selectedCityIds.length === 0) {
         showNotification("Seleziona almeno una città!", 'error');
         return;
     }
-    
+
     // Ottieni distretti per città
     const cityDistricts = {};
     let totalDistricts = 0;
-    
+
     selectedCityIds.forEach(cityId => {
         const checkboxes = document.querySelectorAll(`#districtsContainer input[data-city="${cityId}"]:checked`);
         const districts = Array.from(checkboxes).map(cb => cb.value);
         cityDistricts[cityId] = districts;
         totalDistricts += districts.length;
     });
-    
+
     if (totalDistricts === 0) {
         showNotification("Seleziona almeno un distretto per una delle città!", 'error');
         return;
     }
-    
+
     // Prepara dati città per il worker
     const citiesData = selectedCityIds.map(cityId => {
         const city = window.extractedCities.find(c => c.id === cityId);
@@ -577,8 +615,8 @@ function startOptimization() {
                 document.getElementById('resultsSection').classList.add('visible');
 
                 // Re-inizializza la visualizzazione
-                cameraX = window.innerWidth / 2;
-                cameraY = window.innerHeight / 2;
+                cameraX = canvas.width / 2;
+                cameraY = canvas.height / 2;
 
                 buildSidebar();
                 if (CIV6_DATA.soluzioni.length > 0) {
@@ -621,6 +659,7 @@ function initCanvas() {
     // Eventi Mouse
     canvas.addEventListener('mousedown', e => {
         isDragging = true;
+        // Account for zoom in drag start position
         startDragX = e.clientX - cameraX;
         startDragY = e.clientY - cameraY;
         canvas.style.cursor = 'grabbing';
@@ -633,6 +672,7 @@ function initCanvas() {
 
     window.addEventListener('mousemove', e => {
         if (isDragging) {
+            // Pan moves at same speed regardless of zoom
             cameraX = e.clientX - startDragX;
             cameraY = e.clientY - startDragY;
             draw();
@@ -644,10 +684,117 @@ function initCanvas() {
 
     canvas.addEventListener('wheel', e => {
         e.preventDefault();
-        cameraY -= e.deltaY * 0.5;
-        cameraX -= e.deltaX * 0.5;
+
+        // Zoom with mouse wheel (vertical scroll)
+        if (e.deltaY !== 0) {
+            const zoomFactor = e.deltaY > 0 ? 0.9 : 1.1;
+            const newZoom = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, zoomLevel * zoomFactor));
+
+            // Zoom toward mouse position
+            const rect = canvas.getBoundingClientRect();
+            const mouseX = e.clientX - rect.left;
+            const mouseY = e.clientY - rect.top;
+
+            // Calculate world position before zoom
+            const worldX = (mouseX - cameraX) / zoomLevel;
+            const worldY = (mouseY - cameraY) / zoomLevel;
+
+            zoomLevel = newZoom;
+
+            // Adjust camera to keep mouse position stable
+            cameraX = mouseX - worldX * zoomLevel;
+            cameraY = mouseY - worldY * zoomLevel;
+
+            if (window.updateZoomIndicator) window.updateZoomIndicator();
+        }
+
+        // Pan with shift+wheel or horizontal scroll
+        if (e.deltaX !== 0) {
+            cameraX -= e.deltaX * 0.5;
+        }
+
         draw();
     }, { passive: false });
+
+    // Initialize map control buttons
+    initMapControls();
+}
+
+// Map Controls - Zoom buttons and reset
+function initMapControls() {
+    const zoomInBtn = document.getElementById('zoomInBtn');
+    const zoomOutBtn = document.getElementById('zoomOutBtn');
+    const resetViewBtn = document.getElementById('resetViewBtn');
+    const zoomIndicator = document.getElementById('zoomIndicator');
+
+    if (zoomInBtn) {
+        zoomInBtn.addEventListener('click', () => {
+            const newZoom = Math.min(MAX_ZOOM, zoomLevel * 1.2);
+            zoomLevel = newZoom;
+            updateZoomIndicator();
+            draw();
+        });
+    }
+
+    if (zoomOutBtn) {
+        zoomOutBtn.addEventListener('click', () => {
+            const newZoom = Math.max(MIN_ZOOM, zoomLevel / 1.2);
+            zoomLevel = newZoom;
+            updateZoomIndicator();
+            draw();
+        });
+    }
+
+    if (resetViewBtn) {
+        resetViewBtn.addEventListener('click', () => {
+            // Reset to default view
+            zoomLevel = 1;
+            cameraX = canvas.width / 2;
+            cameraY = canvas.height / 2;
+            updateZoomIndicator();
+            draw();
+        });
+    }
+
+    // Keyboard shortcuts
+    document.addEventListener('keydown', (e) => {
+        if (e.target.tagName === 'INPUT') return; // Don't trigger when typing
+
+        switch (e.key) {
+            case '+':
+            case '=':
+                zoomLevel = Math.min(MAX_ZOOM, zoomLevel * 1.2);
+                updateZoomIndicator();
+                draw();
+                break;
+            case '-':
+                zoomLevel = Math.max(MIN_ZOOM, zoomLevel / 1.2);
+                updateZoomIndicator();
+                draw();
+                break;
+            case '0':
+                zoomLevel = 1;
+                updateZoomIndicator();
+                draw();
+                break;
+            case 'Home':
+                cameraX = canvas.width / 2;
+                cameraY = canvas.height / 2;
+                zoomLevel = 1;
+                updateZoomIndicator();
+                draw();
+                break;
+        }
+    });
+
+    function updateZoomIndicator() {
+        if (zoomIndicator) {
+            zoomIndicator.textContent = Math.round(zoomLevel * 100) + '%';
+        }
+    }
+
+    // Expose for external access
+    window.updateZoomIndicator = updateZoomIndicator;
 }
 
 // Logica Hex
@@ -680,23 +827,42 @@ function hexRound(q, r, s) {
     return { q: rq, r: rr, s: rs };
 }
 
-function getHexColor(cella) {
-    if (cella.caratteristiche.includes('Montagna')) return COLORS.FEATURES['Montagna'];
-    if (cella.caratteristiche.includes('Lago')) return COLORS.FEATURES['Lago'];
-    if (cella.caratteristiche.includes('Foresta Pluviale')) return COLORS.FEATURES['Foresta Pluviale'];
-    if (cella.caratteristiche.includes('Bosco')) return COLORS.FEATURES['Bosco'];
-    if (cella.caratteristiche.includes('Costa')) return COLORS.TERRAINS['TERRAIN_COAST'];
-    if (cella.caratteristiche.includes('Lusso') || cella.caratteristiche.includes('Strategica')) return '#8c7e47';
+// Get terrain color object
+function getTerrainColor(cella) {
+    // Le caratteristiche che alterano fisicamente il TIPO di mappa (Montagne, Laghi) 
+    // possono sovrascrivere il colore, ma Boschi e Foreste Pluviali NO, 
+    // altrimenti mascherano il terreno sottostante (es. Pianura vs Prateria).
+    if (cella.caratteristiche.includes('Montagna')) {
+        return COLORS.FEATURES['Montagna'] || COLORS.TERRAINS['default'];
+    }
+    if (cella.caratteristiche.includes('Lago')) {
+        return COLORS.FEATURES['Lago'] || COLORS.TERRAINS['default'];
+    }
+    if (cella.caratteristiche.includes('Costa') && !cella.terrain.includes('OCEAN')) {
+        return COLORS.TERRAINS['TERRAIN_COAST'] || COLORS.TERRAINS['default'];
+    }
+    if (cella.caratteristiche.includes('Oasi')) {
+        return { base: '#b8a84a' }; // L'Oasi è un'eccezione visiva accettabile
+    }
+    
+    // Determina il tipo di terreno base esportato dal log Lua
+    let terrainType = cella.terrain || 'TERRAIN_PLAINS';
+    const hasHill = cella.caratteristiche.includes('Collina');
 
-    // Use real terrain color if available
-    if (cella.terrain && COLORS.TERRAINS[cella.terrain]) {
-        return COLORS.TERRAINS[cella.terrain];
+    // FIX: Evita di aggiungere '_HILLS' se la stringa terrainType lo contiene già 
+    // (previene la ricerca di 'TERRAIN_GRASS_HILLS_HILLS')
+    if (hasHill && !terrainType.includes('_HILLS') && COLORS.TERRAINS[terrainType + '_HILLS']) {
+        return COLORS.TERRAINS[terrainType + '_HILLS'];
     }
 
-    return COLORS.TERRAINS['TERRAIN_PLAINS']; // Default
+    // Ritorna il colore del terreno esatto, o il fallback se la mod ha generato un terreno sconosciuto
+    return COLORS.TERRAINS[terrainType] || COLORS.TERRAINS['default'];
 }
 
-function drawHex(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
+
+
+// Simplified hex drawing - clean colors
+function drawHex(x, y, size, colorObj, strokeStyle, lineWidth = 1) {
     ctx.beginPath();
     for (let i = 0; i < 6; i++) {
         const angle_deg = 60 * i + 30; // Pointy topped
@@ -708,7 +874,12 @@ function drawHex(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
     }
     ctx.closePath();
 
-    ctx.fillStyle = fillStyle;
+    // Use base color directly
+    if (colorObj && typeof colorObj === 'object' && colorObj.base) {
+        ctx.fillStyle = colorObj.base;
+    } else {
+        ctx.fillStyle = colorObj;
+    }
     ctx.fill();
 
     ctx.lineWidth = lineWidth;
@@ -716,11 +887,32 @@ function drawHex(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
     ctx.stroke();
 }
 
+// Legacy simple hex drawing for backward compatibility
+function drawHexSimple(x, y, size, fillStyle, strokeStyle, lineWidth = 1) {
+    ctx.beginPath();
+    for (let i = 0; i < 6; i++) {
+        const angle_deg = 60 * i + 30;
+        const angle_rad = Math.PI / 180 * angle_deg;
+        const px = x + size * Math.cos(angle_rad);
+        const py = y + size * Math.sin(angle_rad);
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+    ctx.fillStyle = fillStyle;
+    ctx.fill();
+    ctx.lineWidth = lineWidth;
+    ctx.strokeStyle = strokeStyle;
+    ctx.stroke();
+}
+
+// Main draw function with Civ 6 style rendering
 function draw() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
 
     ctx.save();
     ctx.translate(cameraX, cameraY);
+    ctx.scale(zoomLevel, zoomLevel);
 
     const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
     let activeLayout = activeSolution ? activeSolution.layout : {};
@@ -730,7 +922,7 @@ function draw() {
         if (nome && nome.includes('] ')) return nome.split('] ')[1];
         return nome;
     }
-    
+
     // Helper: estrai prefisso città dal nome distretto
     function getCityPrefix(nome) {
         if (nome && nome.includes('] ')) {
@@ -741,28 +933,36 @@ function draw() {
     }
 
     // Disegna tutte le celle esportate
+    const drawnHexes = new Set();
     CIV6_DATA.celle.forEach(cella => {
+        // Safety: don't draw the same hex twice in the same frame
+        const coordKey = `${cella.q},${cella.r}`;
+        if (drawnHexes.has(coordKey)) return;
+        drawnHexes.add(coordKey);
+
         const pos = hexToPixel(cella.q, cella.r);
 
-        let bgColor = getHexColor(cella);
+        // Get enhanced terrain color object
+        let terrainColor = getTerrainColor(cella);
         let isHovered = hoveredHex && hoveredHex.q === cella.q && hoveredHex.r === cella.r;
-        
+
         // Colore bordo basato sull'appartenenza alla città
-        let strokeColor = 'rgba(255, 255, 255, 0.1)';
+        let strokeColor = 'rgba(255, 255, 255, 0.15)';
         let strokeWidth = 1;
-        
+
         if (cella.cityColor && window.extractedCities && window.extractedCities.length > 1) {
             // Bordo colorato per mostrare appartenenza alla città
             strokeColor = cella.cityColor + '80'; // 50% opacità
             strokeWidth = 2;
         }
 
+        // Draw hex - simple stroke on hover without glow
         if (isHovered) {
-            strokeColor = 'rgba(255, 255, 255, 0.8)';
-            strokeWidth = 3;
+            strokeColor = 'rgba(255, 255, 255, 0.5)';
+            strokeWidth = 2;
         }
 
-        drawHex(pos.x, pos.y, HEX_SIZE - 1, bgColor, strokeColor, strokeWidth);
+        drawHex(pos.x, pos.y, HEX_SIZE - 1, terrainColor, strokeColor, strokeWidth);
 
         // Disegna Distretto (Centro Cittadino o dal Layout)
         let renderDistretto = cella.distretto_base;
@@ -777,66 +977,67 @@ function draw() {
             }
         }
 
+        // Draw district - simplified without icons
         if (renderDistretto) {
             const distrettoBase = getDistrettoBase(renderDistretto);
-            const distColor = COLORS.DISTRICTS[distrettoBase] || COLORS.DISTRICTS[renderDistretto] || '#fff';
-            
-            // Background nero più opaco per migliore contrasto
-            drawHex(pos.x, pos.y, HEX_SIZE - 10, 'rgba(0,0,0,0.85)', distColor, 2);
+            const distConfig = COLORS.DISTRICTS[distrettoBase] || COLORS.DISTRICTS[renderDistretto] || { color: '#ffffff', icon: 'city', glow: '#6d9eff' };
+
+            // Background scuro per distretto
+            drawHexSimple(pos.x, pos.y, HEX_SIZE - 10, 'rgba(0,0,0,0.7)', distConfig.color, 2);
 
             // Nome Distretto
             ctx.fillStyle = '#ffffff';
-            ctx.font = 'bold 10px Inter';
+            ctx.font = 'bold 9px Inter';
             ctx.textAlign = 'center';
             ctx.textBaseline = 'middle';
-
-            ctx.shadowColor = 'rgba(0,0,0,1)';
-            ctx.shadowBlur = 4;
 
             let txt = distrettoBase.substring(0, 3).toUpperCase();
             if (distrettoBase === "Centro Cittadino") txt = "CC";
             if (distrettoBase === "Hub Commerciale") txt = "HUB";
-            
+
             // Per CC, mostra nome città sotto
             if (distrettoBase === "Centro Cittadino") {
-                ctx.fillText(txt, pos.x, pos.y - 8);
-                
+                ctx.fillText(txt, pos.x, pos.y - 7);
+
                 // Nome della città sotto il CC
-                ctx.font = 'bold 8px Inter';
+                ctx.font = 'bold 7px Inter';
                 const cityName = cella.cityName || '';
-                const shortName = cityName.length > 6 ? cityName.substring(0, 6) + '.' : cityName;
+                const shortName = cityName.length > 7 ? cityName.substring(0, 7) + '.' : cityName;
                 ctx.fillStyle = cella.cityColor || '#ffffff';
-                ctx.fillText(shortName, pos.x, pos.y + 6);
+                ctx.fillText(shortName, pos.x, pos.y + 7);
             } else {
-                // Per distretti normali, mostra abbreviazione + indicatore città
-                ctx.fillText(txt, pos.x, pos.y - 6);
-                
+                // Per distretti normali
+                ctx.fillText(txt, pos.x, pos.y - 5);
+
                 // Indicatore città sotto (se multi-città)
                 if (distrettoCityPrefix || (cella.cityName && window.extractedCities && window.extractedCities.length > 1)) {
                     const cityLabel = distrettoCityPrefix || cella.cityName || '';
                     const shortCity = cityLabel.length > 5 ? cityLabel.substring(0, 5) : cityLabel;
-                    ctx.font = '7px Inter';
-                    
-                    // Trova il colore della città corrispondente
+                    ctx.font = '6px Inter';
+
                     let cityCol = cella.cityColor || '#aaa';
                     if (distrettoCityPrefix && window.cityCenters) {
                         const center = window.cityCenters.find(c => c.cityName === distrettoCityPrefix);
                         if (center) cityCol = center.cityColor;
                     }
-                    
+
                     ctx.fillStyle = cityCol;
-                    ctx.fillText(shortCity, pos.x, pos.y + 7);
+                    ctx.fillText(shortCity, pos.x, pos.y + 6);
                 }
             }
-
-            ctx.shadowBlur = 0;
         }
 
-        // Overlay Fiume (Semplificato: testo blu)
+        // River indicator - simple wavy line (keeps terrain color underneath)
         if (cella.caratteristiche.includes('Fiume')) {
-            ctx.fillStyle = '#58a6ff';
-            ctx.font = '12px Inter';
-            ctx.fillText('~', pos.x, pos.y + Math.floor(HEX_SIZE / 2));
+            ctx.save();
+            ctx.strokeStyle = 'rgba(80, 150, 220, 0.6)';
+            ctx.lineWidth = 2;
+            // Draw a simple wave pattern
+            ctx.beginPath();
+            ctx.moveTo(pos.x - HEX_SIZE * 0.3, pos.y);
+            ctx.quadraticCurveTo(pos.x, pos.y - 4, pos.x + HEX_SIZE * 0.3, pos.y);
+            ctx.stroke();
+            ctx.restore();
         }
 
     });
@@ -899,7 +1100,7 @@ function buildSidebar() {
 function sortSolutions(key) {
     currentSortKey = key;
     buildSidebar();
-    
+
     // Auto-scroll to top of results and sidebar
     const solutionsList = document.getElementById('solutionsList');
     if (solutionsList) solutionsList.scrollTop = 0;
@@ -935,8 +1136,9 @@ function selectSolution(id) {
 function handleHover(mouseX, mouseY) {
     // Sottrai l'offset del canvas (sidebar)
     const rect = canvas.getBoundingClientRect();
-    const x = mouseX - rect.left - cameraX;
-    const y = mouseY - rect.top - cameraY;
+    // Account for zoom level in mouse position conversion
+    const x = (mouseX - rect.left - cameraX) / zoomLevel;
+    const y = (mouseY - rect.top - cameraY) / zoomLevel;
 
     const hex = pixelToHex(x, y);
 
@@ -982,6 +1184,172 @@ function positionTooltip(mouseX, mouseY) {
     tt.style.left = x + 'px';
     tt.style.top = y + 'px';
 }
+// Enhanced tooltip update with detailed information
+function updateTooltip(cella, mouseX, mouseY) {
+    const tt = document.getElementById('tooltip');
+    if (!tt) return;
+
+    const terrainColor = getTerrainColor(cella);
+
+    // Determine terrain name for display
+    let terrainName = 'Pianura';
+    const terrainMap = {
+        'TERRAIN_GRASS': 'Prateria',
+        'TERRAIN_GRASS_HILLS': 'Prateria Collina',
+        'TERRAIN_GRASS_MOUNTAIN': 'Montagna (Prateria)',
+        'TERRAIN_PLAINS': 'Pianura',
+        'TERRAIN_PLAINS_HILLS': 'Pianura Collina',
+        'TERRAIN_PLAINS_MOUNTAIN': 'Montagna (Pianura)',
+        'TERRAIN_DESERT': 'Deserto',
+        'TERRAIN_DESERT_HILLS': 'Deserto Collina',
+        'TERRAIN_DESERT_MOUNTAIN': 'Montagna (Deserto)',
+        'TERRAIN_TUNDRA': 'Tundra',
+        'TERRAIN_TUNDRA_HILLS': 'Tundra Collina',
+        'TERRAIN_TUNDRA_MOUNTAIN': 'Montagna (Tundra)',
+        'TERRAIN_SNOW': 'Neve',
+        'TERRAIN_SNOW_HILLS': 'Neve Collina',
+        'TERRAIN_SNOW_MOUNTAIN': 'Montagna (Neve)',
+        'TERRAIN_COAST': 'Costa',
+        'TERRAIN_OCEAN': 'Oceano'
+    };
+
+    if (cella.terrain) {
+        terrainName = terrainMap[cella.terrain] || cella.terrain.replace('TERRAIN_', '');
+    }
+
+    // Aggiungi suffisso Collina se non presente nel nome del terreno ma presente nelle caratteristiche
+    const hasHill = cella.caratteristiche.includes('Collina');
+    if (hasHill && !terrainName.includes('Collina')) {
+        terrainName += ' Collina';
+    }
+
+
+    // Check for features
+    let featureText = '';
+    if (cella.caratteristiche.length > 0) {
+        const features = cella.caratteristiche.filter(c => !c.includes('Lusso') && !c.includes('Strategica'));
+        if (features.length > 0) {
+            featureText = features.join(' • ');
+        }
+    }
+
+    // Check for resources
+    let resourceText = '';
+    if (cella.caratteristiche.includes('Lusso')) resourceText = '💎 Risorsa Lusso';
+    if (cella.caratteristiche.includes('Strategica')) resourceText += (resourceText ? ' | ' : '') + '♠ Risorsa Strategica';
+
+    let html = `
+        <div class="tooltip__header" style="border-left: 3px solid ${terrainColor.base};">
+            <div class="tooltip__title">Cella (${cella.q}, ${cella.r})</div>
+            <div class="tooltip__terrain">${terrainName}</div>
+            <div style="color:gray;font-size:10px;margin-top:2px;">Raw: ${cella.terrain}</div>
+        </div>
+        <div class="tooltip__body">
+    `;
+
+    // City ownership
+    if (cella.cityName) {
+        html += `<div class="tooltip__city" style="color: ${cella.cityColor || '#6d9eff'};">🏛 ${cella.cityName}</div>`;
+    }
+
+    // Features
+    if (featureText) {
+        html += `<div class="tooltip__features">🌲 ${featureText}</div>`;
+    } else {
+        html += `<div class="tooltip__features" style="opacity: 0.7;">${terrainName}</div>`;
+    }
+
+    // Resources
+    if (resourceText) {
+        html += `<div class="tooltip__resource">${resourceText}</div>`;
+    }
+
+    // River info
+    if (cella.caratteristiche.includes('Fiume')) {
+        let riverTxt = '~ Fiume';
+        if (cella.riverEdges > 0) riverTxt += ` (Lati: ${cella.riverEdges})`;
+        html += `<div class="tooltip__river" style="color: #5096dc;">${riverTxt}</div>`;
+    }
+
+    // Check for district
+    const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
+    let distretto = cella.distretto_base;
+
+    if (activeSolution && activeSolution.layout) {
+        for (const [nome_distretto, p] of Object.entries(activeSolution.layout)) {
+            if (p.q === cella.q && p.r === cella.r) {
+                distretto = nome_distretto;
+                break;
+            }
+        }
+    }
+
+    if (distretto) {
+        const distrettoBase = distretto.includes('] ') ? distretto.split('] ')[1] : distretto;
+        const distConfig = COLORS.DISTRICTS[distrettoBase] || { color: '#ffffff', icon: 'city' };
+
+        html += `
+            <div class="tooltip__district" style="border-color: ${distConfig.color};">
+                <span class="tooltip__district-icon">${getDistrictEmoji(distrettoBase)}</span>
+                ${distrettoBase}
+            </div>
+        `;
+
+        // Mostra Bonus Adiacenza Calcolato (Real-time)
+        if (activeSolution && distretto !== "Centro Cittadino") {
+            const resaAdiacenza = calcolaResaDistretto(cella, distretto, activeSolution);
+            if (resaAdiacenza && resaAdiacenza.valore > 0) {
+                const yieldIcons = { 'Scienza': '🔬', 'Oro': '💰', 'Produzione': '⚙️', 'Cultura': '🎭', 'Fede': '✨', 'Cibo': '🍞' };
+                const icon = yieldIcons[resaAdiacenza.tipo] || '•';
+                html += `<div class="tooltip__yield" style="color: #4ade80; font-weight: bold; margin-top: 5px; border-top: 1px dashed rgba(255,255,255,0.2); padding-top: 5px;">
+                    ✨ Adiacenza: ${icon} +${resaAdiacenza.valore} ${resaAdiacenza.tipo}
+                </div>`;
+            }
+        }
+
+        // Add yield info if available from solution
+        if (activeSolution && activeSolution.rendimenti) {
+            const cellaKey = `${cella.q},${cella.r}`;
+            if (activeSolution.rendimenti[cellaKey]) {
+                const yields = activeSolution.rendimenti[cellaKey];
+                const yieldIcons = { 'Scienza': '🔬', 'Gold': '💰', 'Produzione': '⚙️', 'Cultura': '🎭', 'Fede': '✨', 'Cibo': '🍞' };
+                
+                for (const [yieldType, value] of Object.entries(yields)) {
+                    if (value !== 0) {
+                        const icon = yieldIcons[yieldType] || '•';
+                        const sign = value > 0 ? '+' : '';
+                        html += `<div class="tooltip__yield" style="color: ${value > 0 ? '#4ade80' : '#f87171'};">${icon} ${sign}${value} ${yieldType}</div>`;
+                    }
+                }
+            }
+        }
+    }
+
+    html += `</div>`;
+    
+    tt.innerHTML = html;
+    tt.classList.add('visible');
+    positionTooltip(mouseX, mouseY);
+}
+
+// Helper to get emoji for district
+function getDistrictEmoji(distrettoBase) {
+    const emojiMap = {
+        'Centro Cittadino': '🏰',
+        'Campus': '🔬',
+        'Hub Commerciale': '⚖️',
+        'Porto': '⚓',
+        'Zona Industriale': '🏭',
+        'Piazza del Teatro': '🎭',
+        'Accampamento': '⛺',
+        'Luogo Santo': '⛩',
+        'Piazza del Governo': '🏛',
+        'Acquedotto': '💧',
+        'Diga': '🌉'
+    };
+    return emojiMap[distrettoBase] || '📍';
+}
+
 
 // Calculate individual district yield for tooltip
 function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
@@ -1018,14 +1386,14 @@ function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
     }).filter(c => c !== null);
 
     const numDistAdj = celleAdiacenti.filter(c => c.distretto_effettivo !== null).length;
-    
+
     // Controlla se c'è una piazza del governo adiacente (considerando anche prefisso)
     const haGoverno = celleAdiacenti.some(c => {
         if (!c.distretto_effettivo) return false;
         const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
         return nomeEffettivo === "Piazza del Governo";
     });
-    
+
     let bonus = Math.floor(numDistAdj / 2) + (haGoverno ? 1 : 0);
 
     let tipo = '', valore = 0;
@@ -1044,24 +1412,36 @@ function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
         }).length * 2;
         valore = haFiume + p + bonus; tipo = 'Oro';
     } else if (nomeBase === "Porto") {
-        const cc = celleAdiacenti.filter(c => c.distretto_effettivo === "Centro Cittadino").length * 2;
+        const cc = celleAdiacenti.filter(c => {
+            if (!c.distretto_effettivo) return false;
+            const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
+            return nomeEffettivo === "Centro Cittadino";
+        }).length * 2;
         const rm = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Marina")).length;
         valore = cc + rm + bonus; tipo = 'Oro';
     } else if (nomeBase === "Zona Industriale") {
         const ad = celleAdiacenti.filter(c => {
             if (!c.distretto_effettivo) return false;
             const nomeEffettivo = c.distretto_effettivo.includes('] ') ? c.distretto_effettivo.split('] ')[1] : c.distretto_effettivo;
-            return nomeEffettivo === "Acquedotto" || nomeEffettivo === "Diga";
+            return nomeEffettivo === "Acquedotto" || nomeEffettivo === "Diga" || nomeEffettivo === "Canale";
         }).length * 2;
-        const s = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Strategica") && !c.distretto_effettivo).length;
+        
+        const s = celleAdiacenti.filter(c => c.caratteristiche.includes("Risorsa Strategica")).length;
         const q = celleAdiacenti.filter(c => c.caratteristiche.includes("Potenziale Cava") && !c.distretto_effettivo).length;
-        const numMiniere = celleAdiacenti.filter(c => (c.caratteristiche.includes("Collina") || c.caratteristiche.includes("Potenziale Miniera")) && !c.distretto_effettivo).length;
-        const numSegherie = celleAdiacenti.filter(c => c.caratteristiche.includes("Bosco") && !c.distretto_effettivo).length;
-        valore = ad + s + q + Math.floor((numMiniere + numSegherie) / 2) + bonus; tipo = 'Produzione';
+
+        const numMiglioramenti = celleAdiacenti.filter(c => {
+            if (c.distretto_effettivo) return false;
+            return c.caratteristiche.includes("Collina") || 
+                   c.caratteristiche.includes("Potenziale Miniera") || 
+                   c.caratteristiche.includes("Bosco") || 
+                   c.caratteristiche.includes("Foresta Pluviale");
+        }).length;
+        
+        valore = ad + s + q + Math.floor(numMiglioramenti / 2) + bonus; tipo = 'Produzione';
     } else if (nomeBase === "Piazza del Teatro") {
         valore = bonus; tipo = 'Cultura';
     } else if (nomeBase === "Accampamento") {
-        return null; // Nessuna resa da visualizzare per Accampamento
+        return null;
     } else if (nomeBase === "Luogo Santo") {
         const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
         const mn = celleAdiacenti.filter(c => c.caratteristiche.includes("Meraviglia Naturale")).length * 2;
@@ -1071,46 +1451,6 @@ function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
         return null;
     }
     return { tipo, valore };
-}
-
-function updateTooltip(cella, mouseX, mouseY) {
-    const tt = document.getElementById('tooltip');
-    if (!tt) return;
-
-    let html = `<div class="tooltip__title">Coordinate: (${cella.q}, ${cella.r})</div>`;
-
-    if (cella.caratteristiche.length > 0) {
-        html += `<div class="tooltip__features">${cella.caratteristiche.join(' • ')}</div>`;
-    } else {
-        html += `<div class="tooltip__features">Pianura / Prateria</div>`;
-    }
-
-    if (cella.riverEdges > 0) {
-        html += `<div class="tooltip__features" style="color: #60a5fa;">Lati Fiume: ${cella.riverEdges}</div>`;
-    }
-
-    const activeSolution = CIV6_DATA.soluzioni.find(s => s.id === selectedSolutionId);
-    let distretto = cella.distretto_base;
-    if (activeSolution) {
-        for (const [nome, p] of Object.entries(activeSolution.layout)) {
-            if (p.q === cella.q && p.r === cella.r) distretto = nome;
-        }
-    }
-
-    if (distretto) {
-        html += `<div class="tooltip__district">${distretto}</div>`;
-
-        if (activeSolution && distretto !== "Centro Cittadino") {
-            const resa = calcolaResaDistretto(cella, distretto, activeSolution);
-            if (resa) {
-                html += `<div class="tooltip__yield">${resa.valore > 0 ? '+' : ''}${resa.valore} ${resa.tipo}</div>`;
-            }
-        }
-    }
-
-    tt.innerHTML = html;
-    tt.classList.add('visible');
-    positionTooltip(mouseX, mouseY);
 }
 
 // Export Controls

@@ -148,18 +148,25 @@ body {
     background-color: var(--bg-primary);
     color: var(--text-primary);
     overflow: hidden;
+    -webkit-user-select: none; /* Safari */
+    -moz-user-select: none;    /* Firefox */
+    -ms-user-select: none;     /* IE 10+/Edge */
+    user-select: none;         /* Standard */
     height: 100vh;
 }
 
 /* Smooth transitions for all interactive elements */
 a,
-button,
+button {
+    transition: all var(--duration-fast) var(--ease-in-out);
+}
+
 input,
 select,
 textarea {
     transition: all var(--duration-fast) var(--ease-in-out);
+    user-select: text; /* Riabilita la selezione nei campi di input */
 }
-
 /* ==========================================================================
    App Container
    ========================================================================== */
@@ -482,18 +489,6 @@ textarea {
     transform: translateY(-1px);
 }
 
-.btn--ghost {
-    background: transparent;
-    color: var(--text-secondary);
-    border: 1px solid var(--glass-border);
-}
-
-.btn--ghost:hover {
-    background: var(--bg-tertiary);
-    color: var(--text-primary);
-    border-color: rgba(255, 255, 255, 0.15);
-}
-
 .btn--example {
     background: linear-gradient(135deg, var(--accent-primary), var(--accent-secondary));
     color: white;
@@ -506,11 +501,7 @@ textarea {
     box-shadow: 0 4px 12px rgba(109, 158, 255, 0.3);
 }
 
-.btn--icon {
-    padding: var(--space-sm);
-    min-width: 36px;
-    min-height: 36px;
-}
+
 
 .btn .icon {
     width: 16px;
@@ -1103,6 +1094,129 @@ textarea {
     content: '◆';
     color: var(--accent-gold);
     font-size: 8px;
+}
+
+/* Enhanced Tooltip Styles */
+.tooltip__header {
+    padding-left: var(--space-sm);
+    margin-bottom: var(--space-sm);
+    border-bottom: 1px solid var(--glass-border);
+    padding-bottom: var(--space-xs);
+}
+
+.tooltip__terrain {
+    font-size: var(--text-lg);
+    font-weight: var(--font-semibold);
+    color: var(--text-primary);
+    margin-top: var(--space-xs);
+}
+
+.tooltip__body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-xs);
+}
+
+.tooltip__city {
+    font-weight: var(--font-semibold);
+    font-size: var(--text-sm);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.tooltip__resource {
+    font-size: var(--text-xs);
+    color: var(--accent-gold);
+    background: rgba(255, 215, 0, 0.1);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    margin-top: var(--space-xs);
+}
+
+.tooltip__river {
+    font-size: var(--text-xs);
+    display: flex;
+    align-items: center;
+    gap: var(--space-xs);
+}
+
+.tooltip__yield {
+    font-size: var(--text-xs);
+    padding: 2px var(--space-sm);
+    border-radius: var(--radius-sm);
+    display: inline-block;
+    margin-top: 2px;
+    background: rgba(0, 0, 0, 0.2);
+}
+
+.tooltip__district-icon {
+    font-size: var(--text-base);
+    margin-right: var(--space-xs);
+}
+
+.tooltip__district {
+    background: rgba(109, 158, 255, 0.1);
+    padding: var(--space-xs) var(--space-sm);
+    border-radius: var(--radius-sm);
+    border-left: 3px solid var(--accent-primary);
+}
+
+/* Map Controls - Zoom and Navigation */
+.map-controls {
+    position: absolute;
+    bottom: var(--space-lg);
+    right: var(--space-lg);
+    display: flex;
+    flex-direction: column;
+    gap: var(--space-sm);
+    z-index: 100;
+}
+
+.map-control-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: var(--radius-md);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    color: var(--text-primary);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all var(--duration-fast);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+}
+
+.map-control-btn:hover {
+    background: var(--bg-elevated);
+    border-color: var(--accent-primary);
+    box-shadow: var(--shadow-glow-blue);
+    transform: scale(1.05);
+}
+
+.map-control-btn:active {
+    transform: scale(0.95);
+}
+
+.map-control-btn svg {
+    width: 20px;
+    height: 20px;
+}
+
+.zoom-indicator {
+    text-align: center;
+    padding: var(--space-xs) var(--space-sm);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-sm);
+    color: var(--text-secondary);
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
 }
 
 .tooltip__yield {

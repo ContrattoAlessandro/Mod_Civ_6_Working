@@ -260,6 +260,34 @@
             </header>
             <canvas id="hexCanvas" aria-label="Mappa esagonale interattiva"></canvas>
 
+            <!-- Map Controls Overlay -->
+            <div class="map-controls" id="mapControls" aria-label="Controlli mappa">
+                <button class="map-control-btn" id="zoomInBtn" aria-label="Zoom avanti" title="Zoom avanti (scroll su)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="11" y1="8" x2="11" y2="14" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                </button>
+                <button class="map-control-btn" id="zoomOutBtn" aria-label="Zoom indietro"
+                    title="Zoom indietro (scroll giu)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8" />
+                        <line x1="21" y1="21" x2="16.65" y2="16.65" />
+                        <line x1="8" y1="11" x2="14" y2="11" />
+                    </svg>
+                </button>
+                <button class="map-control-btn" id="resetViewBtn" aria-label="Ripristina vista"
+                    title="Ripristina vista (Home)">
+                    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                        <path d="M3 3v5h5" />
+                    </svg>
+                </button>
+                <div class="zoom-indicator" id="zoomIndicator">100%</div>
+            </div>
+
             <!-- Tooltip for hover info -->
             <div class="tooltip" id="tooltip" role="tooltip" aria-hidden="true"></div>
         </main>
@@ -465,19 +493,28 @@ function verifica_vincoli(distretto, esagono, mappa, cityCenters) {
         centerR = center.r;
         centerS = center.s;
     }
-    
-    const cella = mappa.celle.get(esagono.hashKey());
+        const cella = mappa.celle.get(esagono.hashKey());
     if (!cella || cella.distretto !== null) return false;
+
+    // Vincoli terreni acqua/terra
+    const isOcean = (cella.terrain === "TERRAIN_OCEAN");
+    const isWater = isOcean || cella.terrain === "TERRAIN_COAST" || cella.caratteristiche.has("Costa") || cella.caratteristiche.has("Lago");
+    
+    // Mai piazzare nulla sull'Oceano profondo
+    if (isOcean) return false;
+    
+    // Il Porto deve essere in acqua (Costa/Lago) ma non Oceano
+    if (distretto_base === "Porto") {
+        if (!isWater) return false;
+    } else {
+        // Altri distretti NON possono essere in acqua (a parte Porto)
+        if (isWater) return false;
+    }
 
     const incompatibili = ["Montagna", "Fessura Geotermale", "Risorsa Strategica", "Risorsa Lusso", "Barriera Corallina"];
     for (let f of incompatibili) {
         if (cella.caratteristiche.has(f)) return false;
     }
-
-    const is_costa = cella.caratteristiche.has("Costa");
-
-    if (distretto_base === "Porto") return is_costa;
-    if (is_costa && distretto_base !== "Porto") return false;
 
     if (distretto_base === "Diga") {
         return cella.caratteristiche.has("Pianura Alluvionale") && cella.riverEdges >= 2;
@@ -528,7 +565,7 @@ function calcola_rese(mappa) {
             .map(adj => mappa.celle.get(adj.hashKey()))
             .filter(c => c !== undefined);
 
-        const num_distretti_adiacenti = celle_adiacenti.filter(c => c.distretto !== null && c.distretto !== "Centro Cittadino").length;
+        const num_distretti_adiacenti = celle_adiacenti.filter(c => c.distretto !== null).length;
         
         // Controlla se c'è una piazza del governo adiacente (considerando anche prefisso)
         const ha_piazza_governo = celle_adiacenti.some(c => {
@@ -568,15 +605,21 @@ function calcola_rese(mappa) {
             const ad = celle_adiacenti.filter(c => {
                 if (!c.distretto) return false;
                 const nome_base = c.distretto.includes('] ') ? c.distretto.split('] ')[1] : c.distretto;
-                return nome_base === "Acquedotto" || nome_base === "Diga";
+                return nome_base === "Acquedotto" || nome_base === "Diga" || nome_base === "Canale";
             }).length * 2;
-            const s = celle_adiacenti.filter(c => c.caratteristiche.has("Risorsa Strategica") && c.distretto === null).length;
+            
+            const s = celle_adiacenti.filter(c => c.caratteristiche.has("Risorsa Strategica")).length;
             const q = celle_adiacenti.filter(c => c.caratteristiche.has("Potenziale Cava") && c.distretto === null).length;
 
-            const num_miniere = celle_adiacenti.filter(c => (c.caratteristiche.has("Collina") || c.caratteristiche.has("Potenziale Miniera")) && c.distretto === null).length;
-            const num_segherie = celle_adiacenti.filter(c => c.caratteristiche.has("Bosco") && c.distretto === null).length;
+            // Bonus 1 ogni 2 per Miniere (su colline o risorse) e Segherie (su boschi o giungle)
+            const num_miglioramenti = celle_adiacenti.filter(c => {
+                if (c.distretto !== null) return false;
+                const isMine = c.caratteristiche.has("Collina") || c.caratteristiche.has("Potenziale Miniera");
+                const isLumberMill = c.caratteristiche.has("Bosco") || c.caratteristiche.has("Foresta Pluviale");
+                return isMine || isLumberMill;
+            }).length;
 
-            resa_locale = ad + s + q + Math.floor((num_miniere + num_segherie) / 2) + bonus_distretti_generico;
+            resa_locale = ad + s + q + Math.floor(num_miglioramenti / 2) + bonus_distretti_generico;
             rese.Produzione += resa_locale;
 
         } else if (distretto === "Piazza del Teatro") {
@@ -937,7 +980,9 @@ self.onmessage = async function(e) {
                             
                             // Estrai caratteristiche
                             const tStr = Array.isArray(data.t) ? data.t.join(' ') : (data.t || '');
-                            cella.terrain = Array.isArray(data.t) && data.t.length > 0 ? data.t[0] : (typeof data.t === 'string' ? data.t : 'TERRAIN_PLAINS');
+                            cella.terrain = (Array.isArray(data.t) && data.t.length > 0) 
+                                ? data.t[0] 
+                                : (typeof data.t === 'string' && data.t !== "" ? data.t : 'TERRAIN_GRASS');
                             
                             if (tStr.includes("MOUNTAIN")) cella.caratteristiche.add("Montagna");
                             if (tStr.includes("HILL")) cella.caratteristiche.add("Collina");
@@ -969,12 +1014,22 @@ self.onmessage = async function(e) {
                                 if (miniera.some(m => res.includes(m))) cella.caratteristiche.add("Potenziale Miniera");
                             }
                             
-                            // Deduplicazione: Priorità al Centro Cittadino
+                            // Deduplicazione: Centro Cittadino ha sempre priorità, altrimenti uniamo le caratteristiche
                             const existing = mappaCongiunta.celle.get(hash);
                             if (!existing) {
                                 mappaCongiunta.celle.set(hash, cella);
-                            } else if (isCC && existing.distretto !== "Centro Cittadino") {
-                                mappaCongiunta.celle.set(hash, cella);
+                            } else {
+                                // Merge characteristics
+                                cella.caratteristiche.forEach(f => existing.caratteristiche.add(f));
+                                
+                                // CC sovrascrive celle normali
+                                if (isCC) {
+                                    existing.distretto = "Centro Cittadino";
+                                    existing.cityName = cella.cityName;
+                                    existing.cityId = cella.cityId;
+                                    existing.cityColor = cella.cityColor;
+                                    existing.terrain = cella.terrain;
+                                }
                             }
                         } catch (e) {
                             // Ignora errori parsing singole celle
