@@ -584,9 +584,9 @@ function calcola_rese(mappa) {
             rese.Cultura += resa_locale;
 
         } else if (distretto === "Accampamento") {
-            resa_locale = bonus_distretti_generico;
-            rese.Produzione += resa_locale;
-
+            // L'Accampamento non produce nulla tramite adiacenza in Civ VI
+            resa_locale = 0; 
+            // Non aggiunge nulla alle rese
         } else if (distretto === "Luogo Santo") {
             const m = celle_adiacenti.filter(c => c.caratteristiche.has("Montagna")).length;
             const mn = celle_adiacenti.filter(c => c.caratteristiche.has("Meraviglia Naturale")).length * 2;

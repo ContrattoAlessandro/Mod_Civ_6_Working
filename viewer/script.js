@@ -1026,7 +1026,7 @@ function calcolaResaDistretto(cella, distrettoNome, activeSolution) {
     } else if (nomeBase === "Piazza del Teatro") {
         valore = bonus; tipo = 'Cultura';
     } else if (nomeBase === "Accampamento") {
-        valore = bonus; tipo = 'Produzione';
+        return null; // Nessuna resa da visualizzare per Accampamento
     } else if (nomeBase === "Luogo Santo") {
         const m = celleAdiacenti.filter(c => c.caratteristiche.includes("Montagna")).length;
         const mn = celleAdiacenti.filter(c => c.caratteristiche.includes("Meraviglia Naturale")).length * 2;
